@@ -23,10 +23,13 @@ rendering, portable-pty, zsh shell integration injected via ZDOTDIR.
 - **Tab states.** Each tab's dot reflects its session: violet = agent working,
   blue = agent running but idle (waiting on you), gray = plain shell,
   red = exited.
-- **Artifacts rail** (Cmd+Shift+A). While an agent is active, PRISM watches
-  the session's working directory and lists every file the agent creates or
-  edits, newest first, with relative timestamps. Click any entry to reveal it
-  in Finder. The rail button pulses when new artifacts land.
+- **Artifacts rail** (automatic; Cmd+Shift+A to override). While an agent is
+  active, PRISM watches the session's working directory and lists every file
+  the agent creates or edits, newest first, with relative timestamps and the
+  working folder in the header. The rail opens itself when the active tab's
+  agent produces files, follows you between tabs (open where there are
+  artifacts, closed where there aren't), and stays closed for a session once
+  you dismiss it manually. Click any entry to reveal it in Finder.
 - **Mission control** (Cmd+E). A grid of every session: title, state and how
   long it has been in that state, working directory, git branch, and the last
   files touched. Working sessions get a violet border. Click a card to jump

@@ -25,6 +25,7 @@ const newTabBtn = document.getElementById('new-tab');
 const toggleArtBtn = document.getElementById('toggle-artifacts');
 const artBadge = document.getElementById('art-badge');
 const artCount = document.getElementById('art-count');
+const artCwd = document.getElementById('art-cwd');
 const artList = document.getElementById('art-list');
 const fCwd = document.getElementById('f-cwd');
 const fBranch = document.getElementById('f-branch');
@@ -312,6 +313,7 @@ function copyLastOutput() {
 // --- Artifacts rail ---------------------------------------------------------
 function renderArtifacts(tab) {
   artCount.textContent = tab.artifacts.length ? String(tab.artifacts.length) : '';
+  artCwd.textContent = tab.cwd ? tilde(tab.cwd) : '';
   artList.replaceChildren();
   if (tab.artifacts.length === 0) {
     const empty = document.createElement('div');
@@ -409,7 +411,7 @@ async function createTab(startCwd) {
     exited: false, fgProcess: '', agentActive: false, startTime: Date.now(),
     cwd: startCwd || '', branch: '', burstActive: false, workSeen: 0,
     stateSince: Date.now(), marks: [], cmdStart: null, lastCmd: null,
-    artifacts: [], groupId: null,
+    artifacts: [], groupId: null, railDismissed: false,
     autoTitle: label, customTitle: null, renaming: false,
   };
   tabs.push(tab);
@@ -472,6 +474,9 @@ function makeChip(g) {
   updateChip(g);
   return el;
 }
+// Collapse only toggles classes — renderStrip() re-appends nodes, which would
+// reset the CSS transition mid-animation.
+function restyleTabs() { for (const t of tabs) styleTabGroup(t); }
 async function toggleCollapse(g) {
   g.collapsed = !g.collapsed;
   if (g.collapsed && activeTab?.groupId === g.id) {
@@ -481,17 +486,17 @@ async function toggleCollapse(g) {
       // like Chrome: when the group holds every tab, open a fresh one so the
       // collapse can proceed instead of silently refusing
       await createTab();
-      renderStrip();
+      restyleTabs();
       persistSession();
       return;
     }
     const idx = tabs.indexOf(activeTab);
     const next = vis.reduce((best, t) =>
       Math.abs(tabs.indexOf(t) - idx) < Math.abs(tabs.indexOf(best) - idx) ? t : best);
-    renderStrip();
+    restyleTabs();
     activateTab(next);
   } else {
-    renderStrip();
+    restyleTabs();
   }
   persistSession();
 }
@@ -680,13 +685,14 @@ window.addEventListener('mousedown', (e) => {
 
 function activateTab(tab) {
   const g = tabGroup(tab);
-  if (g?.collapsed) { g.collapsed = false; renderStrip(); } // activating expands
+  if (g?.collapsed) { g.collapsed = false; restyleTabs(); } // activating expands
   activeTab = tab;
   for (const t of tabs) {
     const on = t === tab;
     t.paneEl.classList.toggle('hidden', !on);
     t.tabEl.classList.toggle('active', on);
   }
+  setPanel(tab.artifacts.length > 0 && !tab.railDismissed); // rail follows context
   fitTab(tab);
   syncGlow();
   renderFooter();
@@ -775,6 +781,7 @@ listen('pty://exit', (e) => {
 listen('pty://proc', (e) => {
   const t = tabById(e.payload.id); if (!t) return;
   t.fgProcess = e.payload.proc;
+  if (e.payload.active && !t.agentActive) t.railDismissed = false; // new agent session
   t.agentActive = e.payload.active;
   if (!e.payload.active && t.burstActive) clearWork(t); else refreshTab(t);
   if (t === activeTab) renderFooter();
@@ -803,7 +810,10 @@ listen('artifacts://update', (e) => {
   const grew = e.payload.list.length > t.artifacts.length;
   t.artifacts = e.payload.list;
   if (t === activeTab) { renderArtifacts(t); updateArtBadge(); }
-  if (grew && !document.body.classList.contains('panel-open')) {
+  if (!grew) return;
+  if (t === activeTab && !t.railDismissed) {
+    setPanel(true); // an agent is producing files here — surface them
+  } else if (!document.body.classList.contains('panel-open')) {
     toggleArtBtn.classList.remove('pulse');
     void toggleArtBtn.offsetWidth;
     toggleArtBtn.classList.add('pulse');
@@ -984,10 +994,17 @@ function toggleMission() {
 missionEl.addEventListener('mousedown', (e) => { if (e.target === missionEl) closeMission(); });
 
 // --- Controls ---------------------------------------------------------------
-function togglePanel() {
-  const open = document.body.classList.toggle('panel-open');
+function setPanel(open) {
+  if (document.body.classList.contains('panel-open') === open) return;
+  document.body.classList.toggle('panel-open', open);
   toggleArtBtn.classList.toggle('active', open);
   requestAnimationFrame(() => { if (activeTab) fitTab(activeTab); });
+}
+function togglePanel() {
+  const opening = !document.body.classList.contains('panel-open');
+  // manually closing a rail that has content means "stop auto-opening here"
+  if (activeTab) activeTab.railDismissed = !opening && activeTab.artifacts.length > 0;
+  setPanel(opening);
 }
 newTabBtn.addEventListener('mousedown', (e) => { e.preventDefault(); if (ready) createTab(); });
 toggleArtBtn.addEventListener('mousedown', (e) => { e.preventDefault(); togglePanel(); });
