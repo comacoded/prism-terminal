@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>PRISM</title>
+    <link rel="stylesheet" href="vendor/xterm.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="vendor/xterm.js"></script>
+    <script src="vendor/addon-fit.js"></script>
+    <script src="vendor/addon-search.js"></script>
+    <script src="vendor/addon-webgl.js"></script>
+    <script src="vendor/addon-clipboard.js"></script>
+    <script src="vendor/addon-image.js"></script>
+    <script src="vendor/addon-unicode-graphemes.js"></script>
+    <script src="vendor/addon-web-links.js"></script>
+  </head>
+  <body>
+    <div id="app">
+      <header id="titlebar" data-tauri-drag-region>
+        <div id="tabs" data-tauri-drag-region></div>
+        <div id="title-actions">
+          <button id="toggle-artifacts" title="Artifacts (Cmd+Shift+A)">◫<span id="art-badge"></span></button>
+          <button id="toggle-settings" title="Settings (Cmd+,)">⚙</button>
+          <button id="new-tab" title="New tab (Cmd+T)">+</button>
+        </div>
+      </header>
+      <main id="main">
+        <div id="panes"></div>
+        <aside id="artifacts">
+          <div class="art-head"><span>Artifacts</span><span class="art-count" id="art-count"></span></div>
+          <div class="art-list" id="art-list"></div>
+        </aside>
+      </main>
+      <footer id="footer">
+        <span class="seg seg-cwd" id="f-cwd"></span>
+        <span class="seg seg-branch" id="f-branch"></span>
+        <span class="seg-spacer"></span>
+        <span class="seg seg-cmd" id="f-cmd"></span>
+        <span class="seg seg-proc" id="f-proc"></span>
+        <span class="seg seg-up" id="f-up"></span>
+      </footer>
+    </div>
+
+    <!-- Settings popover (Cmd+,). -->
+    <div id="settings" class="hidden">
+      <div class="set-head">Settings</div>
+      <div class="set-row">
+        <span class="set-label">Text size</span>
+        <input type="range" id="set-font" min="10" max="20" step="0.5" />
+        <span class="set-val" id="set-font-val"></span>
+      </div>
+      <div class="set-row">
+        <span class="set-label">Glass darkness</span>
+        <input type="range" id="set-tint" min="0" max="80" step="5" />
+        <span class="set-val" id="set-tint-val"></span>
+      </div>
+      <div class="set-row">
+        <span class="set-label">Work glow</span>
+        <input type="checkbox" id="set-glow" />
+        <span class="set-val"></span>
+      </div>
+      <button id="set-reset">Reset to defaults</button>
+    </div>
+
+    <!-- Scrollback search (Cmd+F). -->
+    <div id="find-bar" class="hidden">
+      <input id="find-input" placeholder="find" spellcheck="false" />
+      <span id="find-count"></span>
+      <button id="find-prev" title="Previous (Shift+Enter)">‹</button>
+      <button id="find-next" title="Next (Enter)">›</button>
+      <button id="find-close" title="Close (Esc)">×</button>
+    </div>
+
+    <!-- Command palette (Cmd+P). -->
+    <div id="palette" class="overlay hidden">
+      <div class="palette-box">
+        <input id="palette-input" placeholder="type a command…" spellcheck="false" />
+        <div id="palette-list"></div>
+      </div>
+    </div>
+
+    <!-- Mission control: grid of every session (Cmd+E). -->
+    <div id="mission" class="overlay hidden">
+      <div class="mission-grid" id="mission-grid"></div>
+    </div>
+
+    <!-- Siri-style animated conic-gradient border (agent "working" glow). -->
+    <div id="siri">
+      <div class="siri-layer glow2"></div>
+      <div class="siri-layer glow1"></div>
+      <div class="siri-layer border"></div>
+    </div>
+
+    <!-- One-time PRISM startup splash. -->
+    <div id="startup">
+      <div class="splash-word" aria-label="prism">
+        <span style="--i: 0">p</span><span style="--i: 1">r</span><span style="--i: 2">i</span><span style="--i: 3">s</span><span style="--i: 4">m</span>
+      </div>
+    </div>
+
+    <script src="main.js"></script>
+  </body>
+</html>
