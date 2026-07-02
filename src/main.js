@@ -410,6 +410,7 @@ async function createTab(startCwd) {
     cwd: startCwd || '', branch: '', burstActive: false, workSeen: 0,
     stateSince: Date.now(), marks: [], cmdStart: null, lastCmd: null,
     artifacts: [], groupId: null,
+    autoTitle: label, customTitle: null, renaming: false,
   };
   tabs.push(tab);
   refreshTab(tab);
@@ -422,10 +423,15 @@ async function createTab(startCwd) {
   });
 
   term.onData((d) => invoke('pty_write', { id, data: d }));
-  term.onTitleChange((t2) => { if (t2) titleEl.textContent = t2; });
+  term.onTitleChange((t2) => {
+    if (!t2) return;
+    tab.autoTitle = t2;
+    if (!tab.customTitle && !tab.renaming) titleEl.textContent = t2;
+  });
   tabEl.addEventListener('mousedown', (e) => { if (closeEl.contains(e.target)) return; activateTab(tab); });
   closeEl.addEventListener('mousedown', (e) => { e.stopPropagation(); closeTab(tab); });
   tabEl.addEventListener('contextmenu', (e) => { e.preventDefault(); openTabMenu(tab, e.clientX, e.clientY); });
+  tabEl.addEventListener('dblclick', (e) => { if (!closeEl.contains(e.target)) startRename(tab); });
 
   activateTab(tab);
   persistSession();
@@ -436,6 +442,7 @@ function tabGroup(t) { return t.groupId != null ? groups.get(t.groupId) : null; 
 function styleTabGroup(t) {
   const g = tabGroup(t);
   t.tabEl.style.borderColor = g ? rgba(g.color, 0.55) : '';
+  t.tabEl.classList.toggle('collapsed', !!g?.collapsed);
 }
 function updateChip(g) {
   if (!g.chipEl) return;
@@ -454,10 +461,29 @@ function updateChip(g) {
 function makeChip(g) {
   const el = document.createElement('div');
   el.className = 'group-chip';
-  el.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); openGroupEditor(g); });
+  // Chrome behavior: click collapses/expands, right-click edits.
+  el.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
+  el.addEventListener('click', () => toggleCollapse(g));
+  el.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); openGroupEditor(g); });
   g.chipEl = el;
   updateChip(g);
   return el;
+}
+function toggleCollapse(g) {
+  g.collapsed = !g.collapsed;
+  if (g.collapsed && activeTab?.groupId === g.id) {
+    // the active tab is vanishing; move to the nearest visible tab outside the group
+    const vis = tabs.filter((t) => t.groupId !== g.id && !tabGroup(t)?.collapsed);
+    if (!vis.length) { g.collapsed = false; return; } // never collapse the last visible tabs
+    const idx = tabs.indexOf(activeTab);
+    const next = vis.reduce((best, t) =>
+      Math.abs(tabs.indexOf(t) - idx) < Math.abs(tabs.indexOf(best) - idx) ? t : best);
+    renderStrip();
+    activateTab(next);
+  } else {
+    renderStrip();
+  }
+  persistSession();
 }
 // Reorder the strip DOM: each group's chip before its first tab, + button last.
 function renderStrip() {
@@ -569,6 +595,36 @@ geUngroup.addEventListener('mousedown', (e) => {
   persistSession();
 });
 
+// Rename a tab inline (double-click or context menu). Empty name reverts to
+// the shell-reported title.
+function startRename(tab) {
+  if (tab.renaming) return;
+  tab.renaming = true;
+  const input = document.createElement('input');
+  input.className = 'tab-rename';
+  input.value = tab.customTitle || '';
+  input.placeholder = tab.autoTitle;
+  input.spellcheck = false;
+  tab.titleEl.replaceChildren(input);
+  input.focus();
+  input.select();
+  const commit = (save) => {
+    if (!tab.renaming) return;
+    tab.renaming = false;
+    if (save) tab.customTitle = input.value.trim() || null;
+    tab.titleEl.textContent = tab.customTitle || tab.autoTitle;
+    persistSession();
+    tab.term.focus();
+  };
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') commit(true);
+    else if (e.key === 'Escape') commit(false);
+  });
+  input.addEventListener('blur', () => commit(true));
+  input.addEventListener('mousedown', (e) => e.stopPropagation());
+}
+
 // Tab context menu.
 function ctxItem(label, onPick, color) {
   const row = document.createElement('div');
@@ -588,6 +644,8 @@ function ctxItem(label, onPick, color) {
 function openTabMenu(tab, x, y) {
   closeGroupEditor();
   ctxMenu.replaceChildren();
+  ctxMenu.appendChild(ctxItem('Rename tab', () => startRename(tab)));
+  ctxMenu.appendChild(Object.assign(document.createElement('div'), { className: 'ctx-sep' }));
   ctxMenu.appendChild(ctxItem('Add to new group', () => createGroupWith(tab)));
   for (const g of groups.values()) {
     if (g.id === tab.groupId) continue;
@@ -611,6 +669,8 @@ window.addEventListener('mousedown', (e) => {
 }, true);
 
 function activateTab(tab) {
+  const g = tabGroup(tab);
+  if (g?.collapsed) { g.collapsed = false; renderStrip(); } // activating expands
   activeTab = tab;
   for (const t of tabs) {
     const on = t === tab;
@@ -627,9 +687,10 @@ function activateTab(tab) {
   persistSession();
 }
 function cycleTab(dir) {
-  if (tabs.length < 2 || !activeTab) return;
-  const idx = tabs.indexOf(activeTab);
-  activateTab(tabs[(idx + dir + tabs.length) % tabs.length]);
+  const vis = tabs.filter((t) => !tabGroup(t)?.collapsed);
+  if (vis.length < 2 || !activeTab) return;
+  const idx = Math.max(0, vis.indexOf(activeTab));
+  activateTab(vis[(idx + dir + vis.length) % vis.length]);
 }
 function fitTab(tab) {
   if (tab.paneEl.classList.contains('hidden')) return;
@@ -657,8 +718,8 @@ function closeTab(tab) {
 function persistSession() {
   try {
     localStorage.setItem('prism.session', JSON.stringify({
-      tabs: tabs.map((t) => ({ cwd: t.cwd || '', g: t.groupId })),
-      groups: [...groups.values()].map(({ id, name, color }) => ({ id, name, color })),
+      tabs: tabs.map((t) => ({ cwd: t.cwd || '', g: t.groupId, name: t.customTitle })),
+      groups: [...groups.values()].map(({ id, name, color, collapsed }) => ({ id, name, color, collapsed })),
       active: Math.max(0, tabs.indexOf(activeTab)),
     }));
   } catch { /* storage unavailable; live session still works */ }
@@ -671,12 +732,14 @@ async function startTabs() {
     .filter((e) => e.cwd).slice(0, MAX_RESTORE_TABS);
   if (!entries.length) { await createTab(); return; }
   for (const g of saved?.groups || []) {
-    groups.set(g.id, { id: g.id, name: g.name || '', color: g.color, chipEl: null });
+    groups.set(g.id, { id: g.id, name: g.name || '', color: g.color, collapsed: !!g.collapsed, chipEl: null });
     groupCounter = Math.max(groupCounter, g.id);
   }
   for (const e of entries) {
     await createTab(e.cwd);
-    if (e.g != null && groups.has(e.g)) tabs[tabs.length - 1].groupId = e.g;
+    const t = tabs[tabs.length - 1];
+    if (e.g != null && groups.has(e.g)) t.groupId = e.g;
+    if (e.name) { t.customTitle = e.name; t.titleEl.textContent = e.name; }
   }
   for (const [id] of groups) dropGroupIfEmpty(id); // groups whose tabs failed to spawn
   renderStrip();

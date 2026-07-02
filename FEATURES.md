@@ -37,10 +37,14 @@ rendering, portable-pty, zsh shell integration injected via ZDOTDIR.
 - **Tabs** with native-feel pills in the titlebar (Cmd+T new, Cmd+W close,
   Cmd+Shift+{ / } to cycle, Cmd+1..9 direct jump).
 - **Tab groups** (Chrome-style). Right-click a tab to start a group or join
-  an existing one; groups get a colored chip in the strip, a name, and a
-  nine-color picker (click the chip to edit or ungroup). Member tabs wear
-  the group color, stay contiguous, and groups persist across launches.
-  Mission control shows each tab's group.
+  an existing one; groups get a colored chip in the strip with a name and a
+  nine-color picker (right-click the chip to edit or ungroup). Clicking a
+  chip collapses the group into it, click again (or activate a member tab)
+  to expand. Member tabs wear the group color, stay contiguous, and groups
+  persist across launches. Mission control shows each tab's group.
+- **Rename tabs.** Double-click a tab (or right-click, Rename) to give it a
+  custom name; clearing the name reverts to the shell-reported title. Names
+  persist across launches.
 - **Iconography**: Phosphor icons throughout the chrome (single filled
   paths, crisp at any size).
 - **Session restore.** Tab working directories and the active tab persist

@@ -100,6 +100,12 @@ body {
   cursor: default;
 }
 .group-chip.unnamed { width: 12px; height: 12px; padding: 0; border-radius: 50%; }
+.tab.collapsed { display: none; } /* member of a collapsed group */
+.tab-rename {
+  width: 90px; padding: 0; border: none; outline: none;
+  background: transparent; color: var(--fg);
+  font: inherit;
+}
 #ctx-menu {
   position: fixed; z-index: 40; min-width: 180px; padding: 5px;
   background: rgba(18,19,26,0.97); border: 1px solid var(--stroke); border-radius: 10px;
@@ -114,7 +120,7 @@ body {
 .ctx-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; }
 .ctx-sep { height: 1px; margin: 5px 8px; background: rgba(255,255,255,0.08); }
 #group-editor {
-  position: fixed; z-index: 40; width: 220px; padding: 12px;
+  position: fixed; z-index: 40; width: 250px; padding: 12px;
   background: rgba(18,19,26,0.97); border: 1px solid var(--stroke); border-radius: 12px;
 }
 #group-editor.hidden { display: none; }
@@ -124,8 +130,11 @@ body {
   background: rgba(255,255,255,0.06); color: var(--fg);
   font: 12px 'JetBrains Mono', monospace; outline: none;
 }
-.ge-colors { display: flex; gap: 8px; margin-bottom: 12px; }
-.ge-color { width: 17px; height: 17px; border-radius: 50%; border: 2px solid transparent; cursor: default; }
+.ge-colors { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
+.ge-color {
+  flex: none; width: 16px; height: 16px; box-sizing: border-box;
+  border-radius: 50%; border: 2px solid transparent; cursor: default;
+}
 .ge-color.sel { border-color: #ffffff; }
 #ge-ungroup {
   width: 100%; padding: 6px 0;
