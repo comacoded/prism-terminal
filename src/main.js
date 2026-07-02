@@ -345,6 +345,7 @@ async function createTab(startCwd) {
 
   const term = new Terminal({
     allowProposedApi: true, // the unicode-graphemes addon registers via proposed API
+    minimumContrastRatio: 4.5, // keep inverse/dim text readable on the translucent glass
     allowTransparency: true, fontFamily: '"JetBrains Mono", Menlo, monospace',
     fontSize: settings.fontSize, lineHeight: 1.2, cursorBlink: true, cursorStyle: 'bar',
     scrollback: 10000, theme: THEME,

@@ -134,6 +134,9 @@ add-zsh-hook preexec __prism_preexec
 add-zsh-hook precmd  __prism_precmd
 add-zsh-hook chpwd   __prism_osc7
 __prism_osc7
+# Pasted text renders as plain text (zsh's default standout/reverse highlight
+# can be unreadable on a translucent background). Respect a user override.
+(( ${+zle_highlight} )) || zle_highlight=(region:standout special:standout suffix:bold isearch:underline paste:none)
 "#;
 const ZLOGIN: &str = r#"if [[ -f "${PRISM_USER_ZDOTDIR:-$HOME}/.zlogin" ]]; then
   . "${PRISM_USER_ZDOTDIR:-$HOME}/.zlogin"
