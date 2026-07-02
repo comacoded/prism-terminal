@@ -344,6 +344,7 @@ async function createTab(startCwd) {
   panesEl.appendChild(paneEl);
 
   const term = new Terminal({
+    allowProposedApi: true, // the unicode-graphemes addon registers via proposed API
     allowTransparency: true, fontFamily: '"JetBrains Mono", Menlo, monospace',
     fontSize: settings.fontSize, lineHeight: 1.2, cursorBlink: true, cursorStyle: 'bar',
     scrollback: 10000, theme: THEME,

@@ -1,0 +1,29 @@
+<!doctype html><html><head><style>
+  html,body { margin:0; width:1024px; height:1024px; background:transparent; overflow:hidden; }
+  .wrap { position:absolute; inset:0; }
+  .sq {
+    position:absolute; inset:100px; border-radius:186px;
+    background: linear-gradient(180deg, #16171d 0%, #0b0c10 55%, #08090c 100%);
+    border: 6px solid rgba(255,255,255,0.09);
+  }
+  .ring, .ring-glow {
+    position:absolute; inset:300px; border-radius:118px;
+    background: conic-gradient(from 230deg, #bc82f3, #f5b9ea, #8d9fff, #ff6778, #ffba71, #c686ff, #bc82f3);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    padding: 22px;
+  }
+  .ring { filter: saturate(1.2); }
+  .ring-glow { filter: blur(34px) saturate(1.25); opacity: 0.75; inset: 296px; padding: 30px; }
+  svg { position:absolute; inset:0; }
+</style></head><body>
+<div class="wrap">
+  <div class="sq"></div>
+  <div class="ring-glow"></div>
+  <div class="ring"></div>
+  <svg viewBox="0 0 1024 1024">
+    <path d="M448 420 L594 512 L448 604" stroke="#f2f3f7" stroke-width="30"
+          fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</div>
+</body></html>
