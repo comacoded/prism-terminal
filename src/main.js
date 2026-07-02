@@ -462,19 +462,29 @@ function makeChip(g) {
   const el = document.createElement('div');
   el.className = 'group-chip';
   // Chrome behavior: click collapses/expands, right-click edits.
-  el.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
-  el.addEventListener('click', () => toggleCollapse(g));
+  el.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.button === 0) toggleCollapse(g);
+  });
   el.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); openGroupEditor(g); });
   g.chipEl = el;
   updateChip(g);
   return el;
 }
-function toggleCollapse(g) {
+async function toggleCollapse(g) {
   g.collapsed = !g.collapsed;
   if (g.collapsed && activeTab?.groupId === g.id) {
     // the active tab is vanishing; move to the nearest visible tab outside the group
     const vis = tabs.filter((t) => t.groupId !== g.id && !tabGroup(t)?.collapsed);
-    if (!vis.length) { g.collapsed = false; return; } // never collapse the last visible tabs
+    if (!vis.length) {
+      // like Chrome: when the group holds every tab, open a fresh one so the
+      // collapse can proceed instead of silently refusing
+      await createTab();
+      renderStrip();
+      persistSession();
+      return;
+    }
     const idx = tabs.indexOf(activeTab);
     const next = vis.reduce((best, t) =>
       Math.abs(tabs.indexOf(t) - idx) < Math.abs(tabs.indexOf(best) - idx) ? t : best);
