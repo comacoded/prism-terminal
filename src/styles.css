@@ -200,8 +200,17 @@ body.tab-dragging .tab { transition: none; } /* no width easing while slots shif
 /* --- Panes + terminals ---------------------------------------------------- */
 #main { display: flex; min-height: 0; }
 #panes { position: relative; flex: 1; min-width: 0; }
-.pane { position: absolute; inset: 0; padding: 4px 12px 6px; }
+.pane { position: absolute; inset: 0; padding: 4px 12px 6px; display: flex; gap: 8px; }
+.pane.split-column { flex-direction: column; }
 .pane.hidden { display: none; }
+.split-cell {
+  flex: 1; min-width: 0; min-height: 0; position: relative;
+  border: 1px solid transparent; border-radius: 8px;
+}
+.pane.multi .split-cell { border-color: rgba(255,255,255,0.09); padding: 4px; }
+.pane.multi .split-cell.focused { border-color: rgba(121,184,255,0.5); }
+body.light .pane.multi .split-cell { border-color: rgba(0,0,0,0.14); }
+body.light .pane.multi .split-cell.focused { border-color: rgba(9,105,218,0.55); }
 .term { height: 100%; }
 .xterm, .xterm-viewport { background: transparent !important; }
 .xterm-viewport::-webkit-scrollbar { width: 9px; }
@@ -292,10 +301,37 @@ body.panel-open #artifacts { width: 300px; }
   background: rgba(255,255,255,0.05); color: var(--fg);
 }
 #settings.hidden { display: none; }
-.set-head { font-size: 12px; color: var(--fg); margin-bottom: 10px; }
+/* Primer-informed: semibold section headers, 8px rhythm, focus rings. */
+.set-head { font-size: 12px; font-weight: 700; color: var(--fg); margin-bottom: 10px; }
+#settings select:focus-visible, #settings input:focus-visible,
+#ge-name:focus-visible, #set-reset:focus-visible, #ge-ungroup:focus-visible {
+  outline: 2px solid rgba(88,166,255,0.55); outline-offset: -1px;
+}
+
+/* Warp-style theme preview cards. */
+.theme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.theme-card {
+  border: 1px solid var(--stroke); border-radius: 8px; overflow: hidden;
+  cursor: default;
+  transition: border-color 120ms ease;
+}
+.theme-card:hover { border-color: rgba(139,148,158,0.5); }
+.theme-card.sel { border-color: var(--tc-accent); outline: 1px solid var(--tc-accent); outline-offset: -2px; }
+.tc-preview {
+  padding: 8px 10px; min-height: 40px;
+  font: 9.5px 'JetBrains Mono', monospace; line-height: 1.75;
+  white-space: nowrap; overflow: hidden;
+}
+.tc-foot {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 5px 8px; font-size: 10px;
+  border-top: 1px solid rgba(0,0,0,0.25);
+}
+.tc-dots { display: flex; gap: 3px; }
+.tc-dots span { width: 7px; height: 7px; border-radius: 50%; }
 .set-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
 .set-label { flex: none; width: 92px; font-size: 11.5px; color: var(--fg-dim); }
-.set-row input[type='range'] { flex: 1; accent-color: #79b8ff; }
+.set-row input[type='range'] { flex: 1; min-width: 0; width: 100%; accent-color: #79b8ff; }
 .set-row input[type='checkbox'] { accent-color: #79b8ff; }
 .set-val { flex: none; width: 38px; text-align: right; font-size: 10.5px; color: var(--fg-dim); }
 #settings::-webkit-scrollbar { width: 8px; }
@@ -403,6 +439,38 @@ body.coding #siri { opacity: 1; }
 body.coding .siri-layer.border, body.coding .siri-layer.glow1 { animation: siriSpin 4.5s linear infinite; }
 body.coding .siri-layer.glow2 { animation: siriSpin 7s linear infinite; }
 @keyframes siriSpin { to { --siri-angle: 360deg; } }
+
+/* --- Light theme chrome ------------------------------------------------------ */
+body.light {
+  --fg: #1f2328;
+  --fg-dim: rgba(31, 35, 40, 0.62);
+  --stroke: rgba(0, 0, 0, 0.16);
+  --tab-active: rgba(0, 0, 0, 0.08);
+  --tab-hover: rgba(0, 0, 0, 0.05);
+}
+body.light #settings, body.light .palette-box, body.light #ctx-menu,
+body.light #group-editor, body.light #find-bar, body.light .m-card {
+  background: rgba(250, 250, 252, 0.97);
+}
+body.light .m-card:hover { background: rgba(240, 241, 244, 0.98); }
+body.light .overlay { background: rgba(255, 255, 255, 0.4); }
+body.light .ctx-item:hover, body.light .p-item.sel, body.light .art-row:hover,
+body.light #title-actions button:hover, body.light #set-reset:hover, body.light #ge-ungroup:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+body.light #ge-name, body.light #settings select, body.light #set-reset,
+body.light #ge-ungroup, body.light .set-key kbd, body.light #title-actions button {
+  background: rgba(0, 0, 0, 0.04);
+}
+body.light #footer, body.light .art-head { border-color: rgba(0, 0, 0, 0.1); }
+body.light #artifacts { border-left-color: rgba(0, 0, 0, 0.1); }
+body.light #titlebar, body.light #footer { color: var(--fg-dim); }
+body.light .xterm-viewport::-webkit-scrollbar-thumb,
+body.light #settings::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.25); }
+body.light #startup { background: rgba(240, 242, 246, 0.6); }
+body.light .splash-word { color: #1f2328; }
+body.light .splash-chev path { stroke: #1f2328; }
+body.light .p-empty, body.light .art-empty { color: var(--fg-dim); }
 
 /* --- Startup splash ------------------------------------------------------- */
 #startup {

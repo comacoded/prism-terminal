@@ -39,6 +39,12 @@ rendering, portable-pty, zsh shell integration injected via ZDOTDIR.
 
 - **Tabs** with native-feel pills in the titlebar (Cmd+T new, Cmd+W close,
   Cmd+Shift+{ / } to cycle, Cmd+1..9 direct jump).
+- **Split panes.** Cmd+D splits right, Cmd+Shift+D splits down (up to four
+  panes per tab, one direction per tab in v1). Click a pane to focus it;
+  the focused pane wears an accent border, gets Cmd+W'd first, and drives
+  the footer, artifacts rail, and search. Every pane is its own shell with
+  independent agent detection, so the glow and tab state aggregate across
+  panes.
 - **Tab groups** (Chrome-style). Right-click a tab to start a group or join
   an existing one; groups get a colored chip in the strip with a name and a
   nine-color picker (right-click the chip to edit or ungroup). Clicking a
@@ -74,12 +80,14 @@ rendering, portable-pty, zsh shell integration injected via ZDOTDIR.
 - **Drag to reorder and regroup.** Drag tabs to rearrange them; drop a tab
   between two tabs of a group (or onto the group's chip) to join that group,
   drag it out to leave. A drop indicator marks the target slot.
-- **Settings** (Cmd+, or the gear button). Seven color themes (PRISM,
-  Dracula, Nord, One Dark, Solarized Dark, Gruvbox Dark, Catppuccin Mocha,
-  all over the glass), text size (10 to 20, also Cmd+plus / Cmd+minus /
-  Cmd+0), glass darkness, cursor style (bar / block / underline) and blink,
-  work-glow toggle, a reset-to-defaults button, and a full shortcuts
-  reference. Persisted across launches.
+- **Settings** (Cmd+, or the gear button; Primer-informed UI). Ten color
+  themes chosen from Warp-style preview cards (PRISM, Dark, Light, Dracula,
+  Cyber Wave, Nord, One Dark, Solarized Dark, Gruvbox Dark, Catppuccin
+  Mocha); the Light theme flips the entire chrome to a light appearance.
+  Plus text size (10 to 20, also Cmd+plus / Cmd+minus / Cmd+0), glass tint,
+  cursor style (bar / block / underline) and blink, work-glow toggle, a
+  reset-to-defaults button, and a full shortcuts reference. Persisted
+  across launches.
 - **Fast scrolling.** 8x wheel scrolling; hold Alt for 20x.
 - **GPU rendering.** WebGL renderer with automatic DOM-renderer fallback.
 - **Footer context.** Working directory (tilde-shortened), git branch,

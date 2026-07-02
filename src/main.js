@@ -2,8 +2,9 @@ const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
 // Color themes: ANSI palettes over the transparent glass background.
+// `bg` paints the settings preview card; `light` flips the whole chrome.
 const THEMES = {
-  prism: { label: 'PRISM', colors: {
+  prism: { label: 'PRISM', bg: '#0d1014', colors: {
     foreground: '#e8e8ea', cursor: '#ffffff', selectionBackground: 'rgba(120,160,255,0.35)',
     black: '#3a3a3c', red: '#ff6d6d', green: '#56d364', yellow: '#e3b341',
     blue: '#79b8ff', magenta: '#d2a8ff', cyan: '#76e3ea', white: '#d9d9de',
@@ -11,7 +12,23 @@ const THEMES = {
     brightYellow: '#f2cc60', brightBlue: '#a5d2ff', brightMagenta: '#e0c4ff',
     brightCyan: '#9bf0f5', brightWhite: '#ffffff',
   } },
-  dracula: { label: 'Dracula', colors: {
+  dark: { label: 'Dark', bg: '#171c28', colors: {
+    foreground: '#e3e6eb', cursor: '#e3e6eb', selectionBackground: 'rgba(74,158,255,0.35)',
+    black: '#21262e', red: '#ff6b82', green: '#4be0a5', yellow: '#f5c96e',
+    blue: '#4a9eff', magenta: '#d485ff', cyan: '#59d5e2', white: '#dfe3e8',
+    brightBlack: '#575e6b', brightRed: '#ff8fa1', brightGreen: '#6ef0bb',
+    brightYellow: '#ffd98c', brightBlue: '#74b6ff', brightMagenta: '#e2a6ff',
+    brightCyan: '#7fe4ef', brightWhite: '#ffffff',
+  } },
+  light: { label: 'Light', bg: '#ffffff', light: true, colors: {
+    foreground: '#1f2328', cursor: '#0969da', selectionBackground: 'rgba(9,105,218,0.22)',
+    black: '#24292f', red: '#cf222e', green: '#116329', yellow: '#9a6700',
+    blue: '#0969da', magenta: '#8250df', cyan: '#1b7c83', white: '#6e7781',
+    brightBlack: '#57606a', brightRed: '#a40e26', brightGreen: '#1a7f37',
+    brightYellow: '#bf8700', brightBlue: '#218bff', brightMagenta: '#a475f9',
+    brightCyan: '#3192aa', brightWhite: '#8c959f',
+  } },
+  dracula: { label: 'Dracula', bg: '#282a36', colors: {
     foreground: '#f8f8f2', cursor: '#f8f8f2', selectionBackground: 'rgba(189,147,249,0.35)',
     black: '#21222c', red: '#ff5555', green: '#50fa7b', yellow: '#f1fa8c',
     blue: '#bd93f9', magenta: '#ff79c6', cyan: '#8be9fd', white: '#f8f8f2',
@@ -19,7 +36,15 @@ const THEMES = {
     brightYellow: '#ffffa5', brightBlue: '#d6acff', brightMagenta: '#ff92df',
     brightCyan: '#a4ffff', brightWhite: '#ffffff',
   } },
-  nord: { label: 'Nord', colors: {
+  cyberwave: { label: 'Cyber Wave', bg: '#150826', colors: {
+    foreground: '#e8e6ff', cursor: '#ff2e97', selectionBackground: 'rgba(0,194,255,0.3)',
+    black: '#2a2140', red: '#ff2e97', green: '#00ffa3', yellow: '#ffd319',
+    blue: '#00c2ff', magenta: '#d642ff', cyan: '#00ffee', white: '#d8d4f2',
+    brightBlack: '#574b7d', brightRed: '#ff64b4', brightGreen: '#5cffc4',
+    brightYellow: '#ffe166', brightBlue: '#55d6ff', brightMagenta: '#e37fff',
+    brightCyan: '#66fff4', brightWhite: '#ffffff',
+  } },
+  nord: { label: 'Nord', bg: '#2e3440', colors: {
     foreground: '#d8dee9', cursor: '#d8dee9', selectionBackground: 'rgba(129,161,193,0.35)',
     black: '#3b4252', red: '#bf616a', green: '#a3be8c', yellow: '#ebcb8b',
     blue: '#81a1c1', magenta: '#b48ead', cyan: '#88c0d0', white: '#e5e9f0',
@@ -27,7 +52,7 @@ const THEMES = {
     brightYellow: '#ebcb8b', brightBlue: '#81a1c1', brightMagenta: '#b48ead',
     brightCyan: '#8fbcbb', brightWhite: '#eceff4',
   } },
-  onedark: { label: 'One Dark', colors: {
+  onedark: { label: 'One Dark', bg: '#282c34', colors: {
     foreground: '#abb2bf', cursor: '#abb2bf', selectionBackground: 'rgba(97,175,239,0.35)',
     black: '#3f4451', red: '#e06c75', green: '#98c379', yellow: '#e5c07b',
     blue: '#61afef', magenta: '#c678dd', cyan: '#56b6c2', white: '#d7dae0',
@@ -35,7 +60,7 @@ const THEMES = {
     brightYellow: '#efb074', brightBlue: '#67cdff', brightMagenta: '#e48bff',
     brightCyan: '#63d4e0', brightWhite: '#ffffff',
   } },
-  solarized: { label: 'Solarized Dark', colors: {
+  solarized: { label: 'Solarized Dark', bg: '#002b36', colors: {
     foreground: '#9fb2b6', cursor: '#93a1a1', selectionBackground: 'rgba(38,139,210,0.35)',
     black: '#073642', red: '#dc322f', green: '#859900', yellow: '#b58900',
     blue: '#268bd2', magenta: '#d33682', cyan: '#2aa198', white: '#eee8d5',
@@ -43,7 +68,7 @@ const THEMES = {
     brightYellow: '#b58900', brightBlue: '#839496', brightMagenta: '#6c71c4',
     brightCyan: '#93a1a1', brightWhite: '#fdf6e3',
   } },
-  gruvbox: { label: 'Gruvbox Dark', colors: {
+  gruvbox: { label: 'Gruvbox Dark', bg: '#282828', colors: {
     foreground: '#ebdbb2', cursor: '#ebdbb2', selectionBackground: 'rgba(131,165,152,0.35)',
     black: '#3c3836', red: '#cc241d', green: '#98971a', yellow: '#d79921',
     blue: '#458588', magenta: '#b16286', cyan: '#689d6a', white: '#a89984',
@@ -51,7 +76,7 @@ const THEMES = {
     brightYellow: '#fabd2f', brightBlue: '#83a598', brightMagenta: '#d3869b',
     brightCyan: '#8ec07c', brightWhite: '#ebdbb2',
   } },
-  catppuccin: { label: 'Catppuccin Mocha', colors: {
+  catppuccin: { label: 'Catppuccin Mocha', bg: '#1e1e2e', colors: {
     foreground: '#cdd6f4', cursor: '#f5e0dc', selectionBackground: 'rgba(137,180,250,0.35)',
     black: '#45475a', red: '#f38ba8', green: '#a6e3a1', yellow: '#f9e2af',
     blue: '#89b4fa', magenta: '#f5c2e7', cyan: '#94e2d5', white: '#bac2de',
@@ -60,9 +85,14 @@ const THEMES = {
     brightCyan: '#94e2d5', brightWhite: '#a6adc8',
   } },
 };
+function currentTheme() { return THEMES[settings.theme] || THEMES.prism; }
 function termTheme() {
-  const t = THEMES[settings.theme] || THEMES.prism;
-  return { background: 'rgba(0,0,0,0)', cursorAccent: '#0a0a0a', ...t.colors };
+  const t = currentTheme();
+  return {
+    background: 'rgba(0,0,0,0)',
+    cursorAccent: t.light ? '#ffffff' : '#0a0a0a',
+    ...t.colors,
+  };
 }
 
 // Glow markers: the LLM work-spinner's live elapsed timer, e.g. "(6s · ..."
@@ -71,6 +101,7 @@ const WORK_HOLD_MS = 2500; // bridge spinner redraws so the glow never flickers
 const WORK_SCAN_MS = 400;
 const NOTIFY_CMD_MS = 15000; // commands longer than this notify when you're away
 const MAX_RESTORE_TABS = 8;
+const MAX_PANES = 4;
 let HOME = '';
 
 const tabsEl = document.getElementById('tabs');
@@ -106,7 +137,7 @@ const setFontVal = document.getElementById('set-font-val');
 const setTint = document.getElementById('set-tint');
 const setTintVal = document.getElementById('set-tint-val');
 const setGlow = document.getElementById('set-glow');
-const setTheme = document.getElementById('set-theme');
+const setThemes = document.getElementById('set-themes');
 const setCursor = document.getElementById('set-cursor');
 const setBlink = document.getElementById('set-blink');
 const setKeys = document.getElementById('set-keys');
@@ -116,7 +147,7 @@ let activeTab = null;
 let tabCounter = 0;
 let ready = false;
 
-// Tab groups (Chrome-style): id -> { id, name, color, chipEl }
+// Tab groups (Chrome-style): id -> { id, name, color, collapsed, chipEl }
 const GROUP_COLORS = ['#79b8ff', '#b388ff', '#f5b9ea', '#ff6d6d', '#ffba71', '#e3b341', '#7ee787', '#76e3ea', '#9a9aa0'];
 const groups = new Map();
 let groupCounter = 0;
@@ -127,7 +158,6 @@ function rgba(hex, a) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
 }
-
 function b64ToBytes(b64) {
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);
@@ -163,12 +193,14 @@ function copyText(text) {
     ta.remove();
   });
 }
+function activePane() { return activeTab?.active ?? null; }
 
 // --- Settings -----------------------------------------------------------------
 const DEFAULT_SETTINGS = { fontSize: 13.5, tint: 45, glow: true, theme: 'prism', cursor: 'bar', blink: true };
 let settings = { ...DEFAULT_SETTINGS };
 const HOTKEYS = [
-  ['⌘T', 'New tab'], ['⌘W', 'Close tab'],
+  ['⌘T', 'New tab'], ['⌘W', 'Close pane / tab'],
+  ['⌘D', 'Split right'], ['⇧⌘D', 'Split down'],
   ['⇧⌘{  ⇧⌘}', 'Previous / next tab'], ['⌘1…9', 'Jump to tab'],
   ['⌘E', 'Mission control'], ['⌘F', 'Find in scrollback'],
   ['⌘P', 'Command palette'], ['⌘K', 'Clear terminal'],
@@ -179,30 +211,79 @@ const HOTKEYS = [
   ['click chip', 'Collapse or expand group'], ['right-click chip', 'Edit group'],
   ['drag tab', 'Reorder; drop into a group to join'],
 ];
+function forEachPane(fn) { for (const t of tabs) for (const p of t.panes) fn(p, t); }
 function applySettings(save) {
-  document.body.style.background = `rgba(10, 11, 16, ${settings.tint / 100})`;
+  const th = currentTheme();
+  document.body.classList.toggle('light', !!th.light);
+  document.body.style.background = th.light
+    ? `rgba(246, 247, 249, ${settings.tint / 100})`
+    : `rgba(10, 11, 16, ${settings.tint / 100})`;
   document.body.classList.toggle('glow-off', !settings.glow);
-  for (const t of tabs) {
-    t.term.options.fontSize = settings.fontSize;
-    t.term.options.theme = termTheme();
-    t.term.options.cursorStyle = settings.cursor;
-    t.term.options.cursorBlink = settings.blink;
-  }
+  forEachPane((p) => {
+    p.term.options.fontSize = settings.fontSize;
+    p.term.options.theme = termTheme();
+    p.term.options.cursorStyle = settings.cursor;
+    p.term.options.cursorBlink = settings.blink;
+  });
   if (activeTab) fitTab(activeTab);
   setFont.value = settings.fontSize;
   setFontVal.textContent = `${settings.fontSize}`;
   setTint.value = settings.tint;
   setTintVal.textContent = `${settings.tint}%`;
   setGlow.checked = settings.glow;
-  setTheme.value = settings.theme;
   setCursor.value = settings.cursor;
   setBlink.checked = settings.blink;
+  setThemes.querySelectorAll('.theme-card').forEach((c) => {
+    c.classList.toggle('sel', c.dataset.theme === settings.theme);
+  });
   if (save) try { localStorage.setItem('prism.settings', JSON.stringify(settings)); } catch {}
+}
+function buildThemeCards() {
+  setThemes.replaceChildren();
+  for (const [key, th] of Object.entries(THEMES)) {
+    const card = document.createElement('div');
+    card.className = 'theme-card';
+    card.dataset.theme = key;
+    card.style.setProperty('--tc-accent', th.colors.blue);
+    const prev = document.createElement('div');
+    prev.className = 'tc-preview';
+    prev.style.background = th.bg;
+    prev.style.color = th.colors.foreground;
+    const l1 = document.createElement('div');
+    l1.textContent = 'ls';
+    const l2 = document.createElement('div');
+    const dir = document.createElement('span'); dir.textContent = 'dir'; dir.style.color = th.colors.blue;
+    const exe = document.createElement('span'); exe.textContent = ' executable'; exe.style.color = th.colors.red;
+    const file = document.createElement('span'); file.textContent = ' file';
+    l2.append(dir, exe, file);
+    prev.append(l1, l2);
+    const foot = document.createElement('div');
+    foot.className = 'tc-foot';
+    foot.style.background = th.light ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.3)';
+    foot.style.color = th.light ? '#24292f' : '#e8e8ea';
+    const name = document.createElement('span');
+    name.textContent = th.label;
+    const dots = document.createElement('span');
+    dots.className = 'tc-dots';
+    for (const c of [th.colors.blue, th.colors.magenta, th.colors.red]) {
+      const d = document.createElement('span');
+      d.style.background = c;
+      dots.appendChild(d);
+    }
+    foot.append(name, dots);
+    card.append(prev, foot);
+    card.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      settings.theme = key;
+      applySettings(true);
+    });
+    setThemes.appendChild(card);
+  }
 }
 function loadSettings() {
   try { settings = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem('prism.settings') || '{}') }; } catch {}
   if (!THEMES[settings.theme]) settings.theme = 'prism';
-  for (const [key, t] of Object.entries(THEMES)) setTheme.add(new Option(t.label, key));
+  buildThemeCards();
   for (const [keys, label] of HOTKEYS) {
     const row = document.createElement('div');
     row.className = 'set-key';
@@ -223,13 +304,12 @@ function adjustFont(delta) {
 }
 function toggleSettings() {
   settingsEl.classList.toggle('hidden');
-  if (settingsEl.classList.contains('hidden')) activeTab?.term.focus();
+  if (settingsEl.classList.contains('hidden')) activePane()?.term.focus();
 }
 settingsBtn.addEventListener('mousedown', (e) => { e.preventDefault(); toggleSettings(); });
 setFont.addEventListener('input', () => { settings.fontSize = parseFloat(setFont.value); applySettings(true); });
 setTint.addEventListener('input', () => { settings.tint = parseInt(setTint.value, 10); applySettings(true); });
 setGlow.addEventListener('change', () => { settings.glow = setGlow.checked; applySettings(true); });
-setTheme.addEventListener('change', () => { settings.theme = setTheme.value; applySettings(true); });
 setCursor.addEventListener('change', () => { settings.cursor = setCursor.value; applySettings(true); });
 setBlink.addEventListener('change', () => { settings.blink = setBlink.checked; applySettings(true); });
 document.getElementById('set-reset').addEventListener('mousedown', (e) => {
@@ -240,12 +320,12 @@ document.getElementById('set-reset').addEventListener('mousedown', (e) => {
 
 // --- Glow -------------------------------------------------------------------
 function syncGlow() {
-  document.body.classList.toggle('coding', activeTab?.burstActive ?? false);
+  document.body.classList.toggle('coding', !!activeTab?.panes.some((p) => p.burstActive));
 }
 function tabState(t) {
-  if (t.exited) return 'exited';
-  if (t.burstActive) return 'working';
-  if (t.agentActive) return 'ready';
+  if (t.panes.length && t.panes.every((p) => p.exited)) return 'exited';
+  if (t.panes.some((p) => p.burstActive)) return 'working';
+  if (t.panes.some((p) => p.agentActive)) return 'ready';
   return 'idle';
 }
 function refreshTab(t) {
@@ -257,10 +337,10 @@ function refreshTab(t) {
 }
 // The agent's spinner line stays painted on the live screen for the whole
 // turn, so scanning the screen (not the output stream) keeps the glow steady.
-function scanWork(t) {
-  if (t.exited || !t.agentActive) return false;
-  const buf = t.term.buffer.active;
-  for (let i = t.term.rows - 1; i >= 0; i--) {
+function scanWork(p) {
+  if (p.exited || !p.agentActive) return false;
+  const buf = p.term.buffer.active;
+  for (let i = p.term.rows - 1; i >= 0; i--) {
     const line = buf.getLine(buf.baseY + i);
     if (line && WORK_RE.test(line.translateToString(true))) return true;
   }
@@ -268,41 +348,45 @@ function scanWork(t) {
 }
 setInterval(() => {
   for (const t of tabs) {
-    if (scanWork(t)) {
-      t.workSeen = Date.now();
-      if (!t.burstActive) { t.burstActive = true; refreshTab(t); syncGlow(); }
-    } else if (t.burstActive && Date.now() - t.workSeen > WORK_HOLD_MS) {
-      t.burstActive = false;
-      refreshTab(t); syncGlow();
+    let changed = false;
+    for (const p of t.panes) {
+      if (scanWork(p)) {
+        p.workSeen = Date.now();
+        if (!p.burstActive) { p.burstActive = true; changed = true; }
+      } else if (p.burstActive && Date.now() - p.workSeen > WORK_HOLD_MS) {
+        p.burstActive = false;
+        changed = true;
+      }
     }
+    if (changed) { refreshTab(t); syncGlow(); }
   }
 }, WORK_SCAN_MS);
-function clearWork(t) {
-  t.burstActive = false; t.workSeen = 0;
+function clearWork(p, t) {
+  p.burstActive = false; p.workSeen = 0;
   refreshTab(t); syncGlow();
 }
 
 // --- Footer -----------------------------------------------------------------
 function renderFooter() {
-  const t = activeTab;
-  if (!t) { fCwd.textContent = fBranch.textContent = fCmd.textContent = fProc.textContent = fUp.textContent = ''; return; }
-  fCwd.textContent = t.cwd ? tilde(t.cwd) : '~';
-  fBranch.textContent = t.branch || '';
-  fBranch.style.display = t.branch ? 'inline-flex' : 'none';
-  const lc = t.lastCmd;
+  const p = activePane();
+  if (!p) { fCwd.textContent = fBranch.textContent = fCmd.textContent = fProc.textContent = fUp.textContent = ''; return; }
+  fCwd.textContent = p.cwd ? tilde(p.cwd) : '~';
+  fBranch.textContent = p.branch || '';
+  fBranch.style.display = p.branch ? 'inline-flex' : 'none';
+  const lc = p.lastCmd;
   if (lc) {
     const ok = !lc.code;
     fCmd.textContent = `${ok ? '✓' : '✗' + lc.code} ${fmtDur(lc.dur)}`;
     fCmd.classList.toggle('err', !ok);
   }
   fCmd.style.display = lc ? 'inline-flex' : 'none';
-  fProc.textContent = t.exited ? 'exited' : t.fgProcess || 'shell';
-  fUp.textContent = uptime(Date.now() - t.startTime);
+  fProc.textContent = p.exited ? 'exited' : p.fgProcess || 'shell';
+  fUp.textContent = uptime(Date.now() - activeTab.startTime);
 }
 
 // --- App-facing protocol handlers (OSC 7 / 9 / 777) ---------------------------
-function appNotify(t, title, body) {
-  if (!document.hasFocus() || t !== activeTab) invoke('notify_user', { title, body });
+function appNotify(p, title, body) {
+  if (!document.hasFocus() || p !== activePane()) invoke('notify_user', { title, body });
 }
 function setTabProgress(t, state, pct) {
   const el = t.progEl;
@@ -312,89 +396,89 @@ function setTabProgress(t, state, pct) {
   el.classList.toggle('indet', state === 3);
   el.style.width = state === 3 ? '100%' : `${Math.max(0, Math.min(100, pct))}%`;
 }
-function hookAppProtocols(t) {
+function hookAppProtocols(t, p) {
   // OSC 7: cwd reporting (file:// URL) — instant, works over ssh, beats lsof polling.
-  t.term.parser.registerOscHandler(7, (data) => {
+  p.term.parser.registerOscHandler(7, (data) => {
     if (!data.startsWith('file://')) return true;
     let path = data.slice(7);
     const slash = path.indexOf('/');
     if (slash === -1) return true;
     path = path.slice(slash);
     try { path = decodeURIComponent(path); } catch {}
-    if (path && t.cwd !== path) {
-      t.cwd = path;
-      if (t === activeTab) renderFooter();
+    if (path && p.cwd !== path) {
+      p.cwd = path;
+      if (p === activePane()) renderFooter();
       persistSession();
     }
     return true;
   });
   // OSC 9: ConEmu-style — "9;4;state;pct" is taskbar progress, anything else is a toast.
-  t.term.parser.registerOscHandler(9, (data) => {
+  p.term.parser.registerOscHandler(9, (data) => {
     if (data.startsWith('4;')) {
       const [, st, pr] = data.split(';');
       setTabProgress(t, parseInt(st, 10), parseInt(pr ?? '0', 10) || 0);
     } else if (data) {
-      appNotify(t, 'Terminal', data);
+      appNotify(p, 'Terminal', data);
     }
     return true;
   });
   // OSC 777: urxvt-style "notify;title;body".
-  t.term.parser.registerOscHandler(777, (data) => {
+  p.term.parser.registerOscHandler(777, (data) => {
     const parts = data.split(';');
-    if (parts[0] === 'notify' && parts[1]) appNotify(t, parts[1], parts.slice(2).join(';'));
+    if (parts[0] === 'notify' && parts[1]) appNotify(p, parts[1], parts.slice(2).join(';'));
     return true;
   });
 }
 
 // --- Semantic prompts (OSC 133, emitted by the injected zsh hooks) -----------
-function hookPromptMarks(t) {
-  t.term.parser.registerOscHandler(133, (data) => {
+function hookPromptMarks(p) {
+  p.term.parser.registerOscHandler(133, (data) => {
     const kind = data[0];
     if (kind === 'A') { // prompt start
-      const m = t.term.registerMarker(0);
-      if (m) t.marks.push(m);
-      if (t.marks.length > 400) t.marks.shift();
+      const m = p.term.registerMarker(0);
+      if (m) p.marks.push(m);
+      if (p.marks.length > 400) p.marks.shift();
     } else if (kind === 'C') { // command output starts
-      t.cmdStart = { time: Date.now(), marker: t.term.registerMarker(0) };
-    } else if (kind === 'D' && t.cmdStart) { // command finished
+      p.cmdStart = { time: Date.now(), marker: p.term.registerMarker(0) };
+    } else if (kind === 'D' && p.cmdStart) { // command finished
       const code = data.length > 2 ? parseInt(data.slice(2), 10) || 0 : 0;
-      t.lastCmd = {
-        dur: Date.now() - t.cmdStart.time,
+      p.lastCmd = {
+        dur: Date.now() - p.cmdStart.time,
         code,
-        startMarker: t.cmdStart.marker,
-        endMarker: t.term.registerMarker(0),
+        startMarker: p.cmdStart.marker,
+        endMarker: p.term.registerMarker(0),
       };
-      t.cmdStart = null;
-      onCommandEnd(t);
+      p.cmdStart = null;
+      onCommandEnd(p);
     }
     return true;
   });
 }
-function onCommandEnd(t) {
-  if (t === activeTab) renderFooter();
-  const lc = t.lastCmd;
-  if (lc.dur >= NOTIFY_CMD_MS && (!document.hasFocus() || t !== activeTab)) {
+function onCommandEnd(p) {
+  if (p === activePane()) renderFooter();
+  const lc = p.lastCmd;
+  if (lc.dur >= NOTIFY_CMD_MS && (!document.hasFocus() || p !== activePane())) {
     invoke('notify_user', {
       title: 'Command finished',
-      body: `${lc.code ? 'exit ' + lc.code : 'ok'} · ${fmtDur(lc.dur)} · ${tilde(t.cwd || '')}`,
+      body: `${lc.code ? 'exit ' + lc.code : 'ok'} · ${fmtDur(lc.dur)} · ${tilde(p.cwd || '')}`,
     });
   }
 }
 function jumpPrompt(dir) {
-  const t = activeTab;
-  if (!t) return;
-  t.marks = t.marks.filter((m) => !m.isDisposed && m.line !== -1);
-  if (!t.marks.length) return;
-  const cur = t.term.buffer.active.viewportY;
-  const lines = t.marks.map((m) => m.line).sort((a, b) => a - b);
+  const p = activePane();
+  if (!p) return;
+  p.marks = p.marks.filter((m) => !m.isDisposed && m.line !== -1);
+  if (!p.marks.length) return;
+  const cur = p.term.buffer.active.viewportY;
+  const lines = p.marks.map((m) => m.line).sort((a, b) => a - b);
   const target = dir < 0 ? [...lines].reverse().find((l) => l < cur) : lines.find((l) => l > cur);
-  if (target != null) t.term.scrollToLine(target);
+  if (target != null) p.term.scrollToLine(target);
 }
 function copyLastOutput() {
-  const t = activeTab;
-  const lc = t?.lastCmd;
+  const p = activePane();
+  const lc = p?.lastCmd;
   if (!lc || !lc.startMarker || lc.startMarker.line === -1 || lc.endMarker.line === -1) return;
-  const buf = t.term.buffer.active;
+  const buf = p.term.buffer.active;
   const out = [];
   for (let l = lc.startMarker.line; l < lc.endMarker.line; l++) {
     const line = buf.getLine(l);
@@ -405,17 +489,19 @@ function copyLastOutput() {
 
 // --- Artifacts rail ---------------------------------------------------------
 function renderArtifacts(tab) {
-  artCount.textContent = tab.artifacts.length ? String(tab.artifacts.length) : '';
-  artCwd.textContent = tab.cwd ? tilde(tab.cwd) : '';
+  const p = tab.active;
+  const arts = p?.artifacts ?? [];
+  artCount.textContent = arts.length ? String(arts.length) : '';
+  artCwd.textContent = p?.cwd ? tilde(p.cwd) : '';
   artList.replaceChildren();
-  if (tab.artifacts.length === 0) {
+  if (arts.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'art-empty';
     empty.textContent = 'Files an agent writes or edits appear here.';
     artList.appendChild(empty);
     return;
   }
-  for (const rec of tab.artifacts) {
+  for (const rec of arts) {
     const row = document.createElement('div');
     row.className = 'art-row';
     row.title = `${rec.path}\nClick to reveal in Finder`;
@@ -438,22 +524,31 @@ function renderArtifacts(tab) {
   }
 }
 function updateArtBadge() {
-  const n = activeTab?.artifacts.length ?? 0;
+  const n = activePane()?.artifacts.length ?? 0;
   artBadge.textContent = n ? String(n) : '';
   artBadge.style.display = n ? 'grid' : 'none';
 }
+function setPanel(open) {
+  if (document.body.classList.contains('panel-open') === open) return;
+  document.body.classList.toggle('panel-open', open);
+  toggleArtBtn.classList.toggle('active', open);
+  requestAnimationFrame(() => { if (activeTab) fitTab(activeTab); });
+}
+function togglePanel() {
+  const opening = !document.body.classList.contains('panel-open');
+  // manually closing a rail that has content means "stop auto-opening here"
+  if (activeTab) activeTab.railDismissed = !opening && (activePane()?.artifacts.length ?? 0) > 0;
+  setPanel(opening);
+}
 
-// --- Tabs -------------------------------------------------------------------
-async function createTab(startCwd) {
-  tabCounter += 1;
-  const label = `Session ${tabCounter}`;
-
-  const paneEl = document.createElement('div');
-  paneEl.className = 'pane';
+// --- Panes (splits) -----------------------------------------------------------
+async function createPane(tab, startCwd) {
+  const el = document.createElement('div');
+  el.className = 'split-cell';
   const termEl = document.createElement('div');
   termEl.className = 'term';
-  paneEl.appendChild(termEl);
-  panesEl.appendChild(paneEl);
+  el.appendChild(termEl);
+  tab.paneEl.appendChild(el);
 
   const term = new Terminal({
     allowProposedApi: true, // the unicode-graphemes addon registers via proposed API
@@ -483,58 +578,79 @@ async function createTab(startCwd) {
 
   let id;
   try {
-    id = await invoke('pty_spawn', { cwd: startCwd ?? activeTab?.cwd ?? null, rows: term.rows, cols: term.cols });
+    id = await invoke('pty_spawn', { cwd: startCwd ?? null, rows: term.rows, cols: term.cols });
   } catch (err) {
     term.dispose();
-    paneEl.remove();
+    el.remove();
     console.error('pty_spawn failed:', err);
-    return;
+    return null;
   }
 
-  const tabEl = document.createElement('div');
-  tabEl.className = 'tab';
-  const dotEl = document.createElement('span'); dotEl.className = 'dot';
-  const titleEl = document.createElement('span'); titleEl.className = 'tab-title'; titleEl.textContent = label;
-  const closeEl = document.createElement('span'); closeEl.className = 'tab-close'; closeEl.innerHTML = X_ICON;
-  const progEl = document.createElement('span'); progEl.className = 'tab-progress';
-  tabEl.append(dotEl, titleEl, closeEl, progEl);
-  tabsEl.insertBefore(tabEl, newTabBtn); // the + button stays after the last tab
-
-  const tab = {
-    id, term, fit, search, paneEl, tabEl, titleEl, progEl,
-    exited: false, fgProcess: '', agentActive: false, startTime: Date.now(),
+  const pane = {
+    id, term, fit, search, el,
+    exited: false, fgProcess: '', agentActive: false,
     cwd: startCwd || '', branch: '', burstActive: false, workSeen: 0,
-    stateSince: Date.now(), marks: [], cmdStart: null, lastCmd: null,
-    artifacts: [], groupId: null, railDismissed: false,
-    autoTitle: label, customTitle: null, renaming: false,
+    marks: [], cmdStart: null, lastCmd: null, artifacts: [],
   };
-  tabs.push(tab);
-  refreshTab(tab);
-  hookPromptMarks(tab);
-  hookAppProtocols(tab);
+  hookPromptMarks(pane);
+  hookAppProtocols(tab, pane);
   search.onDidChangeResults(({ resultIndex, resultCount }) => {
-    if (tab === activeTab && !findBar.classList.contains('hidden')) {
+    if (pane === activePane() && !findBar.classList.contains('hidden')) {
       findCount.textContent = resultCount ? `${resultIndex + 1}/${resultCount}` : '0/0';
     }
   });
-
   term.onData((d) => invoke('pty_write', { id, data: d }));
-  term.onTitleChange((t2) => {
-    if (!t2) return;
-    tab.autoTitle = t2;
-    if (!tab.customTitle && !tab.renaming) titleEl.textContent = t2;
+  term.onTitleChange((title) => {
+    if (!title || pane !== tab.active) return;
+    tab.autoTitle = title;
+    if (!tab.customTitle && !tab.renaming) tab.titleEl.textContent = title;
   });
-  tabEl.addEventListener('mousedown', (e) => {
-    if (closeEl.contains(e.target) || tab.renaming) return;
-    activateTab(tab);
-    if (e.button === 0) beginTabDrag(tab, e);
+  el.addEventListener('mousedown', () => {
+    if (tab === activeTab && tab.active !== pane) setActivePane(tab, pane);
   });
-  closeEl.addEventListener('mousedown', (e) => { e.stopPropagation(); closeTab(tab); });
-  tabEl.addEventListener('contextmenu', (e) => { e.preventDefault(); openTabMenu(tab, e.clientX, e.clientY); });
-  tabEl.addEventListener('dblclick', (e) => { if (!closeEl.contains(e.target)) startRename(tab); });
-
-  activateTab(tab);
-  persistSession();
+  return pane;
+}
+function setActivePane(tab, pane) {
+  tab.active = pane;
+  for (const p of tab.panes) p.el.classList.toggle('focused', p === pane);
+  if (tab === activeTab) {
+    invoke('set_active', { id: pane.id });
+    renderFooter();
+    renderArtifacts(tab);
+    updateArtBadge();
+    pane.term.focus();
+  }
+}
+async function splitPane(dir) {
+  const t = activeTab;
+  if (!t || !ready) return;
+  if (t.panes.length >= MAX_PANES) return;
+  if (t.splitDir && t.splitDir !== dir) return; // v1: one direction per tab
+  const pane = await createPane(t, t.active?.cwd || null);
+  if (!pane) return;
+  t.splitDir = t.splitDir || dir;
+  t.paneEl.classList.add('multi');
+  t.paneEl.classList.toggle('split-column', t.splitDir === 'column');
+  t.panes.push(pane);
+  setActivePane(t, pane);
+  fitTab(t);
+  refreshTab(t);
+}
+function closePane(tab, pane) {
+  if (!pane.exited) invoke('pty_kill', { id: pane.id });
+  pane.term.dispose();
+  pane.el.remove();
+  const idx = tab.panes.indexOf(pane);
+  if (idx !== -1) tab.panes.splice(idx, 1);
+  if (!tab.panes.length) { removeTab(tab); return; }
+  if (tab.panes.length === 1) {
+    tab.splitDir = null;
+    tab.paneEl.classList.remove('multi', 'split-column');
+  }
+  if (tab.active === pane) setActivePane(tab, tab.panes[Math.max(0, idx - 1)]);
+  fitTab(tab);
+  refreshTab(tab);
+  syncGlow();
 }
 
 // --- Tab groups ---------------------------------------------------------------
@@ -650,7 +766,7 @@ function dropGroupIfEmpty(gid) {
 function createGroupWith(tab) {
   const used = new Set([...groups.values()].map((g) => g.color));
   const color = GROUP_COLORS.find((c) => !used.has(c)) || GROUP_COLORS[groups.size % GROUP_COLORS.length];
-  const g = { id: ++groupCounter, name: '', color, chipEl: null };
+  const g = { id: ++groupCounter, name: '', color, collapsed: false, chipEl: null };
   groups.set(g.id, g);
   assignGroup(tab, g.id);
   openGroupEditor(g); // name it right away, like Chrome
@@ -671,7 +787,7 @@ function openGroupEditor(g) {
       e.preventDefault();
       g.color = c;
       updateChip(g);
-      for (const t of tabs) styleTabGroup(t);
+      restyleTabs();
       geColors.querySelectorAll('.ge-color').forEach((d) => d.classList.toggle('sel', d === dot));
       persistSession();
     });
@@ -679,7 +795,7 @@ function openGroupEditor(g) {
   }
   groupEditor.classList.remove('hidden');
   const r = (g.chipEl || tabsEl).getBoundingClientRect();
-  groupEditor.style.left = `${Math.min(r.left, window.innerWidth - 240)}px`;
+  groupEditor.style.left = `${Math.min(r.left, window.innerWidth - 270)}px`;
   groupEditor.style.top = `${r.bottom + 8}px`;
   geName.focus();
   geName.select();
@@ -688,7 +804,7 @@ function closeGroupEditor() {
   if (groupEditor.classList.contains('hidden')) return;
   groupEditor.classList.add('hidden');
   editingGroup = null;
-  activeTab?.term.focus();
+  activePane()?.term.focus();
 }
 geName.addEventListener('input', () => {
   if (!editingGroup) return;
@@ -811,7 +927,7 @@ function startRename(tab) {
     if (save) tab.customTitle = input.value.trim() || null;
     tab.titleEl.textContent = tab.customTitle || tab.autoTitle;
     persistSession();
-    tab.term.focus();
+    tab.active?.term.focus();
   };
   input.addEventListener('keydown', (e) => {
     e.stopPropagation();
@@ -865,6 +981,54 @@ window.addEventListener('mousedown', (e) => {
       && !(editingGroup?.chipEl?.contains(e.target))) closeGroupEditor();
 }, true);
 
+// --- Tabs -------------------------------------------------------------------
+async function createTab(startCwd) {
+  tabCounter += 1;
+  const label = `Session ${tabCounter}`;
+
+  const paneEl = document.createElement('div');
+  paneEl.className = 'pane';
+  panesEl.appendChild(paneEl);
+
+  const tabEl = document.createElement('div');
+  tabEl.className = 'tab';
+  const dotEl = document.createElement('span'); dotEl.className = 'dot';
+  const titleEl = document.createElement('span'); titleEl.className = 'tab-title'; titleEl.textContent = label;
+  const closeEl = document.createElement('span'); closeEl.className = 'tab-close'; closeEl.innerHTML = X_ICON;
+  const progEl = document.createElement('span'); progEl.className = 'tab-progress';
+  tabEl.append(dotEl, titleEl, closeEl, progEl);
+
+  const tab = {
+    panes: [], active: null, splitDir: null,
+    paneEl, tabEl, titleEl, progEl,
+    startTime: Date.now(), stateSince: Date.now(),
+    groupId: null, railDismissed: false,
+    autoTitle: label, customTitle: null, renaming: false,
+  };
+
+  const pane = await createPane(tab, startCwd ?? activePane()?.cwd ?? null);
+  if (!pane) { paneEl.remove(); return; }
+  tab.panes.push(pane);
+  tab.active = pane;
+  pane.el.classList.add('focused');
+
+  tabs.push(tab);
+  tabsEl.insertBefore(tabEl, newTabBtn); // the + button stays after the last tab
+  refreshTab(tab);
+
+  tabEl.addEventListener('mousedown', (e) => {
+    if (closeEl.contains(e.target) || tab.renaming) return;
+    activateTab(tab);
+    if (e.button === 0) beginTabDrag(tab, e);
+  });
+  closeEl.addEventListener('mousedown', (e) => { e.stopPropagation(); closeTab(tab); });
+  tabEl.addEventListener('contextmenu', (e) => { e.preventDefault(); openTabMenu(tab, e.clientX, e.clientY); });
+  tabEl.addEventListener('dblclick', (e) => { if (!closeEl.contains(e.target)) startRename(tab); });
+
+  activateTab(tab);
+  persistSession();
+}
+
 function activateTab(tab) {
   const g = tabGroup(tab);
   if (g?.collapsed) { g.collapsed = false; restyleTabs(); } // activating expands
@@ -874,14 +1038,16 @@ function activateTab(tab) {
     t.paneEl.classList.toggle('hidden', !on);
     t.tabEl.classList.toggle('active', on);
   }
-  setPanel(tab.artifacts.length > 0 && !tab.railDismissed); // rail follows context
+  setPanel((tab.active?.artifacts.length ?? 0) > 0 && !tab.railDismissed); // rail follows context
   fitTab(tab);
   syncGlow();
   renderFooter();
   renderArtifacts(tab);
   updateArtBadge();
-  invoke('set_active', { id: tab.id });
-  tab.term.focus();
+  if (tab.active) {
+    invoke('set_active', { id: tab.active.id });
+    tab.active.term.focus();
+  }
   persistSession();
 }
 function cycleTab(dir) {
@@ -892,12 +1058,12 @@ function cycleTab(dir) {
 }
 function fitTab(tab) {
   if (tab.paneEl.classList.contains('hidden')) return;
-  try { tab.fit.fit(); } catch { return; }
-  if (!tab.exited) invoke('pty_resize', { id: tab.id, rows: tab.term.rows, cols: tab.term.cols });
+  for (const p of tab.panes) {
+    try { p.fit.fit(); } catch { continue; }
+    if (!p.exited) invoke('pty_resize', { id: p.id, rows: p.term.rows, cols: p.term.cols });
+  }
 }
-function closeTab(tab) {
-  if (!tab.exited) invoke('pty_kill', { id: tab.id });
-  tab.term.dispose();
+function removeTab(tab) {
   tab.paneEl.remove();
   tab.tabEl.remove();
   const idx = tabs.indexOf(tab);
@@ -911,12 +1077,20 @@ function closeTab(tab) {
   }
   persistSession();
 }
+function closeTab(tab) {
+  for (const p of tab.panes) {
+    if (!p.exited) invoke('pty_kill', { id: p.id });
+    p.term.dispose();
+  }
+  tab.panes = [];
+  removeTab(tab);
+}
 
 // --- Session restore ----------------------------------------------------------
 function persistSession() {
   try {
     localStorage.setItem('prism.session', JSON.stringify({
-      tabs: tabs.map((t) => ({ cwd: t.cwd || '', g: t.groupId, name: t.customTitle })),
+      tabs: tabs.map((t) => ({ cwd: t.active?.cwd || '', g: t.groupId, name: t.customTitle })),
       groups: [...groups.values()].map(({ id, name, color, collapsed }) => ({ id, name, color, collapsed })),
       active: Math.max(0, tabs.indexOf(activeTab)),
     }));
@@ -946,54 +1120,64 @@ async function startTabs() {
 }
 
 // --- IPC routing ------------------------------------------------------------
-function tabById(id) { return tabs.find((t) => t.id === id); }
+function findPane(id) {
+  for (const t of tabs) {
+    const p = t.panes.find((p2) => p2.id === id);
+    if (p) return { t, p };
+  }
+  return null;
+}
 
 listen('pty://data', (e) => {
-  const t = tabById(e.payload.id); if (!t) return;
-  t.term.write(b64ToBytes(e.payload.data));
+  const hit = findPane(e.payload.id); if (!hit) return;
+  hit.p.term.write(b64ToBytes(e.payload.data));
 });
 listen('pty://exit', (e) => {
-  const t = tabById(e.payload.id); if (!t) return;
-  t.exited = true; t.fgProcess = ''; t.agentActive = false;
-  clearWork(t);
+  const hit = findPane(e.payload.id); if (!hit) return;
+  const { t, p } = hit;
+  p.exited = true; p.fgProcess = ''; p.agentActive = false;
+  clearWork(p, t);
   setTabProgress(t, 0, 0);
-  t.term.write('\r\n\x1b[2m[process exited]\x1b[0m\r\n');
-  if (t === activeTab) renderFooter();
+  p.term.write('\r\n\x1b[2m[process exited]\x1b[0m\r\n');
+  if (p === activePane()) renderFooter();
 });
 listen('pty://proc', (e) => {
-  const t = tabById(e.payload.id); if (!t) return;
-  t.fgProcess = e.payload.proc;
-  if (e.payload.active && !t.agentActive) t.railDismissed = false; // new agent session
-  t.agentActive = e.payload.active;
-  if (!e.payload.active && t.burstActive) clearWork(t); else refreshTab(t);
-  if (t === activeTab) renderFooter();
+  const hit = findPane(e.payload.id); if (!hit) return;
+  const { t, p } = hit;
+  p.fgProcess = e.payload.proc;
+  if (e.payload.active && !p.agentActive) t.railDismissed = false; // new agent session
+  p.agentActive = e.payload.active;
+  if (!e.payload.active && p.burstActive) clearWork(p, t); else refreshTab(t);
+  if (p === activePane()) renderFooter();
 });
 listen('footer://update', (e) => {
-  const t = tabById(e.payload.id); if (!t) return;
-  const moved = t.cwd !== e.payload.cwd;
-  t.cwd = e.payload.cwd; t.branch = e.payload.branch;
-  if (t === activeTab) renderFooter();
+  const hit = findPane(e.payload.id); if (!hit) return;
+  const { p } = hit;
+  const moved = p.cwd !== e.payload.cwd;
+  p.cwd = e.payload.cwd; p.branch = e.payload.branch;
+  if (p === activePane()) renderFooter();
   if (moved) persistSession();
 });
-// Dropped files paste their shell-escaped paths at the active tab's cursor.
+// Dropped files paste their shell-escaped paths at the focused pane's cursor.
 function shellEscape(p) {
   return /[^\w@%+=:,./-]/.test(p) ? `'${p.replace(/'/g, `'\\''`)}'` : p;
 }
 window.__TAURI__.webview.getCurrentWebview().onDragDropEvent((e) => {
   if (e.payload.type !== 'drop') return;
-  const t = activeTab;
+  const p = activePane();
   const paths = e.payload.paths || [];
-  if (!t || t.exited || !paths.length) return;
-  invoke('pty_write', { id: t.id, data: paths.map(shellEscape).join(' ') + ' ' });
-  t.term.focus();
+  if (!p || p.exited || !paths.length) return;
+  invoke('pty_write', { id: p.id, data: paths.map(shellEscape).join(' ') + ' ' });
+  p.term.focus();
 });
 listen('artifacts://update', (e) => {
-  const t = tabById(e.payload.id); if (!t) return;
-  const grew = e.payload.list.length > t.artifacts.length;
-  t.artifacts = e.payload.list;
-  if (t === activeTab) { renderArtifacts(t); updateArtBadge(); }
+  const hit = findPane(e.payload.id); if (!hit) return;
+  const { t, p } = hit;
+  const grew = e.payload.list.length > p.artifacts.length;
+  p.artifacts = e.payload.list;
+  if (p === activePane()) { renderArtifacts(t); updateArtBadge(); }
   if (!grew) return;
-  if (t === activeTab && !t.railDismissed) {
+  if (p === activePane() && !t.railDismissed) {
     setPanel(true); // an agent is producing files here — surface them
   } else if (!document.body.classList.contains('panel-open')) {
     toggleArtBtn.classList.remove('pulse');
@@ -1015,17 +1199,17 @@ function openFind() {
 }
 function closeFind() {
   findBar.classList.add('hidden');
-  activeTab?.search.clearDecorations();
-  activeTab?.term.focus();
+  activePane()?.search.clearDecorations();
+  activePane()?.term.focus();
 }
 function doFind(dir) {
-  const t = activeTab;
-  if (!t || !findInput.value) return;
-  if (dir < 0) t.search.findPrevious(findInput.value, { decorations: FIND_DECOR });
-  else t.search.findNext(findInput.value, { decorations: FIND_DECOR });
+  const p = activePane();
+  if (!p || !findInput.value) return;
+  if (dir < 0) p.search.findPrevious(findInput.value, { decorations: FIND_DECOR });
+  else p.search.findNext(findInput.value, { decorations: FIND_DECOR });
 }
 findInput.addEventListener('input', () => {
-  activeTab?.search.findNext(findInput.value, { decorations: FIND_DECOR, incremental: true });
+  activePane()?.search.findNext(findInput.value, { decorations: FIND_DECOR, incremental: true });
 });
 findInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); doFind(e.shiftKey ? -1 : 1); }
@@ -1039,24 +1223,26 @@ let paletteSel = 0;
 function paletteActions() {
   const acts = [
     { label: 'New tab', kbd: '⌘T', run: () => createTab() },
-    { label: 'Close tab', kbd: '⌘W', run: () => activeTab && closeTab(activeTab) },
+    { label: 'Close pane / tab', kbd: '⌘W', run: () => closeFocused() },
+    { label: 'Split right', kbd: '⌘D', run: () => splitPane('row') },
+    { label: 'Split down', kbd: '⇧⌘D', run: () => splitPane('column') },
     { label: 'Next tab', kbd: '⇧⌘}', run: () => cycleTab(1) },
     { label: 'Previous tab', kbd: '⇧⌘{', run: () => cycleTab(-1) },
     { label: 'Mission control', kbd: '⌘E', run: () => toggleMission() },
     { label: 'Find in scrollback', kbd: '⌘F', run: () => openFind() },
-    { label: 'Clear terminal', kbd: '⌘K', run: () => activeTab?.term.clear() },
+    { label: 'Clear terminal', kbd: '⌘K', run: () => activePane()?.term.clear() },
     { label: 'Toggle artifacts panel', kbd: '⇧⌘A', run: () => togglePanel() },
     { label: 'Settings', kbd: '⌘,', run: () => toggleSettings() },
     { label: 'Copy last command output', kbd: '', run: () => copyLastOutput() },
     { label: 'Jump to previous prompt', kbd: '⌘↑', run: () => jumpPrompt(-1) },
     { label: 'Jump to next prompt', kbd: '⌘↓', run: () => jumpPrompt(1) },
   ];
-  if (activeTab?.cwd) {
-    acts.push({ label: 'Reveal current folder in Finder', kbd: '', run: () => invoke('artifact_reveal', { path: activeTab.cwd }) });
+  if (activePane()?.cwd) {
+    acts.push({ label: 'Reveal current folder in Finder', kbd: '', run: () => invoke('artifact_reveal', { path: activePane().cwd }) });
   }
   for (const t of tabs) {
     acts.push({
-      label: `Go to: ${t.titleEl.textContent}${t.cwd ? ' — ' + tilde(t.cwd) : ''}`,
+      label: `Go to: ${t.titleEl.textContent}${t.active?.cwd ? ' — ' + tilde(t.active.cwd) : ''}`,
       kbd: '', run: () => activateTab(t),
     });
   }
@@ -1102,7 +1288,7 @@ function openPalette() {
 }
 function closePalette() {
   paletteEl.classList.add('hidden');
-  activeTab?.term.focus();
+  activePane()?.term.focus();
 }
 function togglePalette() {
   if (paletteEl.classList.contains('hidden')) openPalette(); else closePalette();
@@ -1134,7 +1320,7 @@ function renderMission() {
     head.className = 'm-head';
     const dot = document.createElement('span'); dot.className = 'dot';
     const title = document.createElement('span'); title.className = 'm-title';
-    title.textContent = t.titleEl.textContent;
+    title.textContent = t.titleEl.textContent + (t.panes.length > 1 ? ` · ${t.panes.length} panes` : '');
     const st = document.createElement('span'); st.className = 'm-state';
     st.textContent = `${STATE_LABEL[state]} · ${relTime(t.stateSince)}`;
     head.append(dot, title, st);
@@ -1149,19 +1335,20 @@ function renderMission() {
 
     const cwd = document.createElement('div');
     cwd.className = 'm-cwd';
-    cwd.textContent = t.cwd ? tilde(t.cwd) : '~';
+    cwd.textContent = t.active?.cwd ? tilde(t.active.cwd) : '~';
     card.append(head, cwd);
 
-    if (t.branch) {
+    if (t.active?.branch) {
       const branch = document.createElement('div');
       branch.className = 'm-branch';
-      branch.textContent = t.branch;
+      branch.textContent = t.active.branch;
       card.appendChild(branch);
     }
-    if (t.artifacts.length) {
+    const arts = t.active?.artifacts ?? [];
+    if (arts.length) {
       const files = document.createElement('div');
       files.className = 'm-files';
-      files.textContent = t.artifacts.slice(0, 3).map((r) => r.path.split('/').pop()).join(' · ');
+      files.textContent = arts.slice(0, 3).map((r) => r.path.split('/').pop()).join(' · ');
       card.appendChild(files);
     }
     card.addEventListener('mousedown', () => { closeMission(); activateTab(t); });
@@ -1169,24 +1356,17 @@ function renderMission() {
   }
 }
 function openMission() { renderMission(); missionEl.classList.remove('hidden'); }
-function closeMission() { missionEl.classList.add('hidden'); activeTab?.term.focus(); }
+function closeMission() { missionEl.classList.add('hidden'); activePane()?.term.focus(); }
 function toggleMission() {
   if (missionEl.classList.contains('hidden')) openMission(); else closeMission();
 }
 missionEl.addEventListener('mousedown', (e) => { if (e.target === missionEl) closeMission(); });
 
 // --- Controls ---------------------------------------------------------------
-function setPanel(open) {
-  if (document.body.classList.contains('panel-open') === open) return;
-  document.body.classList.toggle('panel-open', open);
-  toggleArtBtn.classList.toggle('active', open);
-  requestAnimationFrame(() => { if (activeTab) fitTab(activeTab); });
-}
-function togglePanel() {
-  const opening = !document.body.classList.contains('panel-open');
-  // manually closing a rail that has content means "stop auto-opening here"
-  if (activeTab) activeTab.railDismissed = !opening && activeTab.artifacts.length > 0;
-  setPanel(opening);
+function closeFocused() {
+  if (!activeTab) return;
+  if (activeTab.panes.length > 1) closePane(activeTab, activeTab.active);
+  else closeTab(activeTab);
 }
 newTabBtn.addEventListener('mousedown', (e) => { e.preventDefault(); if (ready) createTab(); });
 toggleArtBtn.addEventListener('mousedown', (e) => { e.preventDefault(); togglePanel(); });
@@ -1207,17 +1387,19 @@ window.addEventListener('keydown', (e) => {
   if (e.shiftKey) {
     const k = e.key.toLowerCase();
     if (k === 'a') { e.preventDefault(); togglePanel(); }
+    else if (k === 'd') { e.preventDefault(); splitPane('column'); }
     else if (e.key === '{' || e.key === '[') { e.preventDefault(); cycleTab(-1); }
     else if (e.key === '}' || e.key === ']') { e.preventDefault(); cycleTab(1); }
     return;
   }
   const k = e.key.toLowerCase();
   if (k === 't') { e.preventDefault(); createTab(); }
-  else if (k === 'w') { e.preventDefault(); if (activeTab) closeTab(activeTab); }
+  else if (k === 'w') { e.preventDefault(); closeFocused(); }
+  else if (k === 'd') { e.preventDefault(); splitPane('row'); }
   else if (k === 'e') { e.preventDefault(); toggleMission(); }
   else if (k === 'f') { e.preventDefault(); openFind(); }
   else if (k === 'p') { e.preventDefault(); togglePalette(); }
-  else if (k === 'k') { e.preventDefault(); activeTab?.term.clear(); }
+  else if (k === 'k') { e.preventDefault(); activePane()?.term.clear(); }
   else if (k === 'arrowup') { e.preventDefault(); jumpPrompt(-1); }
   else if (k === 'arrowdown') { e.preventDefault(); jumpPrompt(1); }
   else if (k === ',') { e.preventDefault(); toggleSettings(); }
@@ -1230,7 +1412,7 @@ window.addEventListener('keydown', (e) => {
 setInterval(() => {
   if (!activeTab) return;
   fUp.textContent = uptime(Date.now() - activeTab.startTime);
-  if (document.body.classList.contains('panel-open') && activeTab.artifacts.length) {
+  if (document.body.classList.contains('panel-open') && activePane()?.artifacts.length) {
     renderArtifacts(activeTab);
   }
   if (!missionEl.classList.contains('hidden')) renderMission();
