@@ -1,15 +1,69 @@
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
-const THEME = {
-  background: 'rgba(0,0,0,0)', foreground: '#e8e8ea', cursor: '#ffffff',
-  cursorAccent: '#0a0a0a', selectionBackground: 'rgba(120,160,255,0.35)',
-  black: '#3a3a3c', red: '#ff6d6d', green: '#56d364', yellow: '#e3b341',
-  blue: '#79b8ff', magenta: '#d2a8ff', cyan: '#76e3ea', white: '#d9d9de',
-  brightBlack: '#6e6e73', brightRed: '#ff8585', brightGreen: '#7ee787',
-  brightYellow: '#f2cc60', brightBlue: '#a5d2ff', brightMagenta: '#e0c4ff',
-  brightCyan: '#9bf0f5', brightWhite: '#ffffff',
+// Color themes: ANSI palettes over the transparent glass background.
+const THEMES = {
+  prism: { label: 'PRISM', colors: {
+    foreground: '#e8e8ea', cursor: '#ffffff', selectionBackground: 'rgba(120,160,255,0.35)',
+    black: '#3a3a3c', red: '#ff6d6d', green: '#56d364', yellow: '#e3b341',
+    blue: '#79b8ff', magenta: '#d2a8ff', cyan: '#76e3ea', white: '#d9d9de',
+    brightBlack: '#6e6e73', brightRed: '#ff8585', brightGreen: '#7ee787',
+    brightYellow: '#f2cc60', brightBlue: '#a5d2ff', brightMagenta: '#e0c4ff',
+    brightCyan: '#9bf0f5', brightWhite: '#ffffff',
+  } },
+  dracula: { label: 'Dracula', colors: {
+    foreground: '#f8f8f2', cursor: '#f8f8f2', selectionBackground: 'rgba(189,147,249,0.35)',
+    black: '#21222c', red: '#ff5555', green: '#50fa7b', yellow: '#f1fa8c',
+    blue: '#bd93f9', magenta: '#ff79c6', cyan: '#8be9fd', white: '#f8f8f2',
+    brightBlack: '#6272a4', brightRed: '#ff6e6e', brightGreen: '#69ff94',
+    brightYellow: '#ffffa5', brightBlue: '#d6acff', brightMagenta: '#ff92df',
+    brightCyan: '#a4ffff', brightWhite: '#ffffff',
+  } },
+  nord: { label: 'Nord', colors: {
+    foreground: '#d8dee9', cursor: '#d8dee9', selectionBackground: 'rgba(129,161,193,0.35)',
+    black: '#3b4252', red: '#bf616a', green: '#a3be8c', yellow: '#ebcb8b',
+    blue: '#81a1c1', magenta: '#b48ead', cyan: '#88c0d0', white: '#e5e9f0',
+    brightBlack: '#4c566a', brightRed: '#bf616a', brightGreen: '#a3be8c',
+    brightYellow: '#ebcb8b', brightBlue: '#81a1c1', brightMagenta: '#b48ead',
+    brightCyan: '#8fbcbb', brightWhite: '#eceff4',
+  } },
+  onedark: { label: 'One Dark', colors: {
+    foreground: '#abb2bf', cursor: '#abb2bf', selectionBackground: 'rgba(97,175,239,0.35)',
+    black: '#3f4451', red: '#e06c75', green: '#98c379', yellow: '#e5c07b',
+    blue: '#61afef', magenta: '#c678dd', cyan: '#56b6c2', white: '#d7dae0',
+    brightBlack: '#4f5666', brightRed: '#ff7b86', brightGreen: '#b1e18b',
+    brightYellow: '#efb074', brightBlue: '#67cdff', brightMagenta: '#e48bff',
+    brightCyan: '#63d4e0', brightWhite: '#ffffff',
+  } },
+  solarized: { label: 'Solarized Dark', colors: {
+    foreground: '#9fb2b6', cursor: '#93a1a1', selectionBackground: 'rgba(38,139,210,0.35)',
+    black: '#073642', red: '#dc322f', green: '#859900', yellow: '#b58900',
+    blue: '#268bd2', magenta: '#d33682', cyan: '#2aa198', white: '#eee8d5',
+    brightBlack: '#586e75', brightRed: '#cb4b16', brightGreen: '#859900',
+    brightYellow: '#b58900', brightBlue: '#839496', brightMagenta: '#6c71c4',
+    brightCyan: '#93a1a1', brightWhite: '#fdf6e3',
+  } },
+  gruvbox: { label: 'Gruvbox Dark', colors: {
+    foreground: '#ebdbb2', cursor: '#ebdbb2', selectionBackground: 'rgba(131,165,152,0.35)',
+    black: '#3c3836', red: '#cc241d', green: '#98971a', yellow: '#d79921',
+    blue: '#458588', magenta: '#b16286', cyan: '#689d6a', white: '#a89984',
+    brightBlack: '#928374', brightRed: '#fb4934', brightGreen: '#b8bb26',
+    brightYellow: '#fabd2f', brightBlue: '#83a598', brightMagenta: '#d3869b',
+    brightCyan: '#8ec07c', brightWhite: '#ebdbb2',
+  } },
+  catppuccin: { label: 'Catppuccin Mocha', colors: {
+    foreground: '#cdd6f4', cursor: '#f5e0dc', selectionBackground: 'rgba(137,180,250,0.35)',
+    black: '#45475a', red: '#f38ba8', green: '#a6e3a1', yellow: '#f9e2af',
+    blue: '#89b4fa', magenta: '#f5c2e7', cyan: '#94e2d5', white: '#bac2de',
+    brightBlack: '#585b70', brightRed: '#f38ba8', brightGreen: '#a6e3a1',
+    brightYellow: '#f9e2af', brightBlue: '#89b4fa', brightMagenta: '#f5c2e7',
+    brightCyan: '#94e2d5', brightWhite: '#a6adc8',
+  } },
 };
+function termTheme() {
+  const t = THEMES[settings.theme] || THEMES.prism;
+  return { background: 'rgba(0,0,0,0)', cursorAccent: '#0a0a0a', ...t.colors };
+}
 
 // Glow markers: the LLM work-spinner's live elapsed timer, e.g. "(6s · ..."
 const WORK_RE = /\(\d+s[\s·)]|esc to interrupt/i;
@@ -52,6 +106,10 @@ const setFontVal = document.getElementById('set-font-val');
 const setTint = document.getElementById('set-tint');
 const setTintVal = document.getElementById('set-tint-val');
 const setGlow = document.getElementById('set-glow');
+const setTheme = document.getElementById('set-theme');
+const setCursor = document.getElementById('set-cursor');
+const setBlink = document.getElementById('set-blink');
+const setKeys = document.getElementById('set-keys');
 
 const tabs = [];
 let activeTab = null;
@@ -107,22 +165,54 @@ function copyText(text) {
 }
 
 // --- Settings -----------------------------------------------------------------
-const DEFAULT_SETTINGS = { fontSize: 13.5, tint: 45, glow: true };
+const DEFAULT_SETTINGS = { fontSize: 13.5, tint: 45, glow: true, theme: 'prism', cursor: 'bar', blink: true };
 let settings = { ...DEFAULT_SETTINGS };
+const HOTKEYS = [
+  ['⌘T', 'New tab'], ['⌘W', 'Close tab'],
+  ['⇧⌘{  ⇧⌘}', 'Previous / next tab'], ['⌘1…9', 'Jump to tab'],
+  ['⌘E', 'Mission control'], ['⌘F', 'Find in scrollback'],
+  ['⌘P', 'Command palette'], ['⌘K', 'Clear terminal'],
+  ['⌘↑  ⌘↓', 'Previous / next prompt'], ['⇧⌘A', 'Artifacts rail'],
+  ['⌘,', 'Settings'], ['⌘+  ⌘−  ⌘0', 'Text size / reset'],
+  ['⌃`', 'Summon PRISM (global)'], ['⌥ scroll', 'Fast scroll'],
+  ['double-click tab', 'Rename tab'], ['right-click tab', 'Group / tab menu'],
+  ['click chip', 'Collapse or expand group'], ['right-click chip', 'Edit group'],
+  ['drag tab', 'Reorder; drop into a group to join'],
+];
 function applySettings(save) {
   document.body.style.background = `rgba(10, 11, 16, ${settings.tint / 100})`;
   document.body.classList.toggle('glow-off', !settings.glow);
-  for (const t of tabs) t.term.options.fontSize = settings.fontSize;
+  for (const t of tabs) {
+    t.term.options.fontSize = settings.fontSize;
+    t.term.options.theme = termTheme();
+    t.term.options.cursorStyle = settings.cursor;
+    t.term.options.cursorBlink = settings.blink;
+  }
   if (activeTab) fitTab(activeTab);
   setFont.value = settings.fontSize;
   setFontVal.textContent = `${settings.fontSize}`;
   setTint.value = settings.tint;
   setTintVal.textContent = `${settings.tint}%`;
   setGlow.checked = settings.glow;
+  setTheme.value = settings.theme;
+  setCursor.value = settings.cursor;
+  setBlink.checked = settings.blink;
   if (save) try { localStorage.setItem('prism.settings', JSON.stringify(settings)); } catch {}
 }
 function loadSettings() {
   try { settings = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem('prism.settings') || '{}') }; } catch {}
+  if (!THEMES[settings.theme]) settings.theme = 'prism';
+  for (const [key, t] of Object.entries(THEMES)) setTheme.add(new Option(t.label, key));
+  for (const [keys, label] of HOTKEYS) {
+    const row = document.createElement('div');
+    row.className = 'set-key';
+    const l = document.createElement('span');
+    l.textContent = label;
+    const kbd = document.createElement('kbd');
+    kbd.textContent = keys;
+    row.append(l, kbd);
+    setKeys.appendChild(row);
+  }
   applySettings(false);
 }
 function adjustFont(delta) {
@@ -139,6 +229,9 @@ settingsBtn.addEventListener('mousedown', (e) => { e.preventDefault(); toggleSet
 setFont.addEventListener('input', () => { settings.fontSize = parseFloat(setFont.value); applySettings(true); });
 setTint.addEventListener('input', () => { settings.tint = parseInt(setTint.value, 10); applySettings(true); });
 setGlow.addEventListener('change', () => { settings.glow = setGlow.checked; applySettings(true); });
+setTheme.addEventListener('change', () => { settings.theme = setTheme.value; applySettings(true); });
+setCursor.addEventListener('change', () => { settings.cursor = setCursor.value; applySettings(true); });
+setBlink.addEventListener('change', () => { settings.blink = setBlink.checked; applySettings(true); });
 document.getElementById('set-reset').addEventListener('mousedown', (e) => {
   e.preventDefault();
   settings = { ...DEFAULT_SETTINGS };
@@ -366,8 +459,9 @@ async function createTab(startCwd) {
     allowProposedApi: true, // the unicode-graphemes addon registers via proposed API
     minimumContrastRatio: 4.5, // keep inverse/dim text readable on the translucent glass
     allowTransparency: true, fontFamily: '"JetBrains Mono", Menlo, monospace',
-    fontSize: settings.fontSize, lineHeight: 1.2, cursorBlink: true, cursorStyle: 'bar',
-    scrollback: 10000, theme: THEME,
+    fontSize: settings.fontSize, lineHeight: 1.2,
+    cursorBlink: settings.blink, cursorStyle: settings.cursor,
+    scrollback: 10000, theme: termTheme(),
     scrollSensitivity: 8, fastScrollSensitivity: 20, fastScrollModifier: 'alt',
   });
   const fit = new FitAddon.FitAddon();
@@ -430,7 +524,11 @@ async function createTab(startCwd) {
     tab.autoTitle = t2;
     if (!tab.customTitle && !tab.renaming) titleEl.textContent = t2;
   });
-  tabEl.addEventListener('mousedown', (e) => { if (closeEl.contains(e.target)) return; activateTab(tab); });
+  tabEl.addEventListener('mousedown', (e) => {
+    if (closeEl.contains(e.target) || tab.renaming) return;
+    activateTab(tab);
+    if (e.button === 0) beginTabDrag(tab, e);
+  });
   closeEl.addEventListener('mousedown', (e) => { e.stopPropagation(); closeTab(tab); });
   tabEl.addEventListener('contextmenu', (e) => { e.preventDefault(); openTabMenu(tab, e.clientX, e.clientY); });
   tabEl.addEventListener('dblclick', (e) => { if (!closeEl.contains(e.target)) startRename(tab); });
@@ -609,6 +707,90 @@ geUngroup.addEventListener('mousedown', (e) => {
   renderStrip();
   persistSession();
 });
+
+// --- Tab drag: reorder, and join/leave groups by where you drop ---------------
+const dropIndicator = document.getElementById('drop-indicator');
+let drag = null;
+function beginTabDrag(tab, e) {
+  drag = { tab, startX: e.clientX, startY: e.clientY, started: false, overChip: null, insert: null };
+  window.addEventListener('mousemove', onTabDragMove);
+  window.addEventListener('mouseup', endTabDrag, { once: true });
+}
+function onTabDragMove(e) {
+  if (!drag) return;
+  if (!drag.started) {
+    if (Math.abs(e.clientX - drag.startX) < 6 && Math.abs(e.clientY - drag.startY) < 6) return;
+    drag.started = true;
+    document.body.classList.add('tab-dragging');
+    drag.tab.tabEl.classList.add('drag-src');
+  }
+  // hovering a group chip means "drop into this group"
+  drag.overChip = null;
+  for (const g of groups.values()) {
+    if (!g.chipEl?.isConnected) continue;
+    g.chipEl.classList.remove('drop-target');
+    const r = g.chipEl.getBoundingClientRect();
+    if (e.clientY >= r.top - 6 && e.clientY <= r.bottom + 6 && e.clientX >= r.left && e.clientX <= r.right) {
+      drag.overChip = g;
+    }
+  }
+  if (drag.overChip) {
+    drag.overChip.chipEl.classList.add('drop-target');
+    dropIndicator.style.display = 'none';
+    drag.insert = null;
+    return;
+  }
+  // otherwise find the insertion slot among visible tabs
+  const slots = tabs
+    .filter((t) => t !== drag.tab && !tabGroup(t)?.collapsed)
+    .map((t) => ({ t, r: t.tabEl.getBoundingClientRect() }));
+  let index = slots.length;
+  for (let i = 0; i < slots.length; i++) {
+    if (e.clientX < slots[i].r.left + slots[i].r.width / 2) { index = i; break; }
+  }
+  drag.insert = { index, slots };
+  const stripR = tabsEl.getBoundingClientRect();
+  const x = index < slots.length
+    ? slots[index].r.left - 4
+    : slots.length ? slots[slots.length - 1].r.right + 2 : stripR.left + 4;
+  dropIndicator.style.display = 'block';
+  dropIndicator.style.left = `${x}px`;
+  dropIndicator.style.top = `${stripR.top + 7}px`;
+  dropIndicator.style.height = `${stripR.height - 14}px`;
+}
+function endTabDrag() {
+  window.removeEventListener('mousemove', onTabDragMove);
+  const d = drag;
+  drag = null;
+  if (!d) return;
+  dropIndicator.style.display = 'none';
+  document.body.classList.remove('tab-dragging');
+  d.tab.tabEl.classList.remove('drag-src');
+  for (const g of groups.values()) g.chipEl?.classList.remove('drop-target');
+  if (!d.started) return;
+  const tab = d.tab;
+  const oldGid = tab.groupId;
+  if (d.overChip) {
+    // dropped on a chip: join at the front of that group
+    tab.groupId = d.overChip.id;
+    tabs.splice(tabs.indexOf(tab), 1);
+    const first = tabs.findIndex((t) => t.groupId === d.overChip.id);
+    tabs.splice(first === -1 ? tabs.length : first, 0, tab);
+  } else if (d.insert) {
+    const { index, slots } = d.insert;
+    const prev = index > 0 ? slots[index - 1].t : null;
+    const next = index < slots.length ? slots[index].t : null;
+    // landing between two tabs of the same group joins it; anywhere else leaves
+    tab.groupId = prev && next && prev.groupId != null && prev.groupId === next.groupId
+      ? prev.groupId : null;
+    tabs.splice(tabs.indexOf(tab), 1);
+    const pos = next ? tabs.indexOf(next) : prev ? tabs.indexOf(prev) + 1 : 0;
+    tabs.splice(pos, 0, tab);
+  }
+  if (tab.groupId !== oldGid) dropGroupIfEmpty(oldGid);
+  renderStrip();
+  persistSession();
+}
 
 // Rename a tab inline (double-click or context menu). Empty name reverts to
 // the shell-reported title.

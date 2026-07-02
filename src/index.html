@@ -55,6 +55,9 @@
     <!-- Tab context menu (right-click a tab). -->
     <div id="ctx-menu" class="hidden"></div>
 
+    <!-- Insertion marker while dragging a tab. -->
+    <div id="drop-indicator"></div>
+
     <!-- Tab group editor (click a group chip). -->
     <div id="group-editor" class="hidden">
       <input id="ge-name" placeholder="Name this group" spellcheck="false" />
@@ -64,16 +67,33 @@
 
     <!-- Settings popover (Cmd+,). -->
     <div id="settings" class="hidden">
-      <div class="set-head">Settings</div>
+      <div class="set-head">Appearance</div>
+      <div class="set-row">
+        <span class="set-label">Theme</span>
+        <select id="set-theme"></select>
+      </div>
       <div class="set-row">
         <span class="set-label">Text size</span>
         <input type="range" id="set-font" min="10" max="20" step="0.5" />
         <span class="set-val" id="set-font-val"></span>
       </div>
       <div class="set-row">
-        <span class="set-label">Glass darkness</span>
+        <span class="set-label">Glass tint</span>
         <input type="range" id="set-tint" min="0" max="80" step="5" />
         <span class="set-val" id="set-tint-val"></span>
+      </div>
+      <div class="set-row">
+        <span class="set-label">Cursor</span>
+        <select id="set-cursor">
+          <option value="bar">bar</option>
+          <option value="block">block</option>
+          <option value="underline">underline</option>
+        </select>
+      </div>
+      <div class="set-row">
+        <span class="set-label">Cursor blink</span>
+        <input type="checkbox" id="set-blink" />
+        <span class="set-val"></span>
       </div>
       <div class="set-row">
         <span class="set-label">Work glow</span>
@@ -81,6 +101,8 @@
         <span class="set-val"></span>
       </div>
       <button id="set-reset">Reset to defaults</button>
+      <div class="set-head set-keys-head">Shortcuts</div>
+      <div id="set-keys"></div>
     </div>
 
     <!-- Scrollback search (Cmd+F). -->

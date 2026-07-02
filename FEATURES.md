@@ -71,9 +71,15 @@ rendering, portable-pty, zsh shell integration injected via ZDOTDIR.
   at the cursor.
 - **Global summon.** Ctrl+` toggles PRISM from anywhere in macOS
   (quick-terminal style).
-- **Settings** (Cmd+, or the gear button). Text size (10 to 20, also
-  Cmd+plus / Cmd+minus / Cmd+0 to reset), glass darkness, work-glow toggle,
-  and a reset-to-defaults button. Persisted across launches.
+- **Drag to reorder and regroup.** Drag tabs to rearrange them; drop a tab
+  between two tabs of a group (or onto the group's chip) to join that group,
+  drag it out to leave. A drop indicator marks the target slot.
+- **Settings** (Cmd+, or the gear button). Seven color themes (PRISM,
+  Dracula, Nord, One Dark, Solarized Dark, Gruvbox Dark, Catppuccin Mocha,
+  all over the glass), text size (10 to 20, also Cmd+plus / Cmd+minus /
+  Cmd+0), glass darkness, cursor style (bar / block / underline) and blink,
+  work-glow toggle, a reset-to-defaults button, and a full shortcuts
+  reference. Persisted across launches.
 - **Fast scrolling.** 8x wheel scrolling; hold Alt for 20x.
 - **GPU rendering.** WebGL renderer with automatic DOM-renderer fallback.
 - **Footer context.** Working directory (tilde-shortened), git branch,
