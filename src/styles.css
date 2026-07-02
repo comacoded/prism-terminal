@@ -87,6 +87,8 @@ body {
 #title-actions button {
   -webkit-app-region: no-drag;
   width: 26px; height: 26px;
+  display: grid; place-items: center;
+  padding: 0; line-height: 1;
   border: 1px solid var(--stroke);
   border-radius: 8px;
   background: rgba(255,255,255,0.05);
@@ -94,6 +96,7 @@ body {
   font-size: 16px;
   cursor: default;
 }
+#toggle-settings { font-size: 18px; }
 #title-actions button:hover { background: rgba(255,255,255,0.1); }
 
 /* --- Panes + terminals ---------------------------------------------------- */
@@ -290,6 +293,28 @@ body.coding .siri-layer.glow2 { animation: siriSpin 7s linear infinite; }
 }
 #startup.leaving { opacity: 0; pointer-events: none; }
 
+.splash-inner { display: grid; justify-items: center; gap: 30px; }
+
+/* The app-icon mark: spinning Siri-gradient ring around a prompt chevron. */
+.splash-mark { position: relative; width: 148px; height: 148px; }
+.splash-ring {
+  position: absolute; inset: 0; border-radius: 41px;
+  background: conic-gradient(from var(--siri-angle), #bc82f3, #f5b9ea, #8d9fff, #ff6778, #ffba71, #c686ff, #bc82f3);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  padding: 8px;
+  filter: saturate(1.2);
+  opacity: 0;
+}
+.splash-ring.glow { inset: -3px; padding: 11px; filter: blur(16px) saturate(1.25); }
+.splash-chev { position: absolute; inset: 0; opacity: 0; transform: scale(0.85); }
+#startup.go .splash-ring { animation: ringIn 0.8s ease forwards, siriSpin 4.5s linear infinite; }
+#startup.go .splash-ring.glow { animation: ringInGlow 0.8s ease forwards, siriSpin 4.5s linear infinite; }
+#startup.go .splash-chev { animation: chevIn 0.55s cubic-bezier(0.2,0.8,0.2,1) 0.3s forwards; }
+@keyframes ringIn { to { opacity: 1; } }
+@keyframes ringInGlow { to { opacity: 0.7; } }
+@keyframes chevIn { to { opacity: 1; transform: scale(1); } }
+
 .splash-word {
   display: flex;
   font-family: 'Raleway', 'Helvetica Neue', sans-serif;
@@ -300,10 +325,11 @@ body.coding .siri-layer.glow2 { animation: siriSpin 7s linear infinite; }
   color: #f2f3f7;
 }
 .splash-word span { opacity: 0; }
-/* Each letter fades in (staggered), holds, then fades back out. */
+/* Each letter fades in (staggered), holds, then fades out; the mark lingers
+   and leaves with the backdrop. */
 #startup.go .splash-word span {
   animation: letterIn 0.7s ease forwards, letterOut 0.55s ease forwards;
-  animation-delay: calc(90ms * var(--i)), calc(1500ms + 60ms * var(--i));
+  animation-delay: calc(90ms * var(--i) + 450ms), calc(1600ms + 60ms * var(--i));
 }
 @keyframes letterIn { to { opacity: 1; } }
 @keyframes letterOut { to { opacity: 0; } }
