@@ -95,11 +95,24 @@ body {
   color: var(--fg);
   cursor: default;
 }
-#title-actions button svg {
-  display: block; width: 15px; height: 15px;
+#title-actions button svg, #new-tab svg {
+  display: block; width: 16px; height: 16px;
   fill: none; stroke: currentColor; stroke-width: 1.9;
   stroke-linecap: round; stroke-linejoin: round;
 }
+
+/* The + lives in the tab row, hugging the last tab like browser tabs. */
+#new-tab {
+  -webkit-app-region: no-drag;
+  flex: none;
+  width: 24px; height: 24px; align-self: center;
+  display: grid; place-items: center;
+  padding: 0; border: none; border-radius: 7px;
+  background: transparent; color: var(--fg-dim);
+  cursor: default;
+  transition: background 120ms ease, color 120ms ease;
+}
+#new-tab:hover { background: var(--tab-hover); color: var(--fg); }
 #title-actions button:hover { background: rgba(255,255,255,0.1); }
 
 /* --- Panes + terminals ---------------------------------------------------- */

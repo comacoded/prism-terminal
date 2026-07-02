@@ -385,7 +385,7 @@ async function createTab(startCwd) {
   const closeEl = document.createElement('span'); closeEl.className = 'tab-close'; closeEl.textContent = '×';
   const progEl = document.createElement('span'); progEl.className = 'tab-progress';
   tabEl.append(dotEl, titleEl, closeEl, progEl);
-  tabsEl.appendChild(tabEl);
+  tabsEl.insertBefore(tabEl, newTabBtn); // the + button stays after the last tab
 
   const tab = {
     id, term, fit, search, paneEl, tabEl, titleEl, progEl,
