@@ -39,6 +39,11 @@ const paletteInput = document.getElementById('palette-input');
 const paletteList = document.getElementById('palette-list');
 const missionEl = document.getElementById('mission');
 const missionGrid = document.getElementById('mission-grid');
+const ctxMenu = document.getElementById('ctx-menu');
+const groupEditor = document.getElementById('group-editor');
+const geName = document.getElementById('ge-name');
+const geColors = document.getElementById('ge-colors');
+const geUngroup = document.getElementById('ge-ungroup');
 const settingsEl = document.getElementById('settings');
 const settingsBtn = document.getElementById('toggle-settings');
 const setFont = document.getElementById('set-font');
@@ -51,6 +56,18 @@ const tabs = [];
 let activeTab = null;
 let tabCounter = 0;
 let ready = false;
+
+// Tab groups (Chrome-style): id -> { id, name, color, chipEl }
+const GROUP_COLORS = ['#79b8ff', '#b388ff', '#f5b9ea', '#ff6d6d', '#ffba71', '#e3b341', '#7ee787', '#76e3ea', '#9a9aa0'];
+const groups = new Map();
+let groupCounter = 0;
+// Phosphor "x", used for every tab's close button.
+const X_ICON = '<svg viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg>';
+
+function rgba(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
 
 function b64ToBytes(b64) {
   const bin = atob(b64);
@@ -382,7 +399,7 @@ async function createTab(startCwd) {
   tabEl.className = 'tab';
   const dotEl = document.createElement('span'); dotEl.className = 'dot';
   const titleEl = document.createElement('span'); titleEl.className = 'tab-title'; titleEl.textContent = label;
-  const closeEl = document.createElement('span'); closeEl.className = 'tab-close'; closeEl.textContent = '×';
+  const closeEl = document.createElement('span'); closeEl.className = 'tab-close'; closeEl.innerHTML = X_ICON;
   const progEl = document.createElement('span'); progEl.className = 'tab-progress';
   tabEl.append(dotEl, titleEl, closeEl, progEl);
   tabsEl.insertBefore(tabEl, newTabBtn); // the + button stays after the last tab
@@ -392,7 +409,7 @@ async function createTab(startCwd) {
     exited: false, fgProcess: '', agentActive: false, startTime: Date.now(),
     cwd: startCwd || '', branch: '', burstActive: false, workSeen: 0,
     stateSince: Date.now(), marks: [], cmdStart: null, lastCmd: null,
-    artifacts: [],
+    artifacts: [], groupId: null,
   };
   tabs.push(tab);
   refreshTab(tab);
@@ -406,12 +423,192 @@ async function createTab(startCwd) {
 
   term.onData((d) => invoke('pty_write', { id, data: d }));
   term.onTitleChange((t2) => { if (t2) titleEl.textContent = t2; });
-  tabEl.addEventListener('mousedown', (e) => { if (e.target === closeEl) return; activateTab(tab); });
+  tabEl.addEventListener('mousedown', (e) => { if (closeEl.contains(e.target)) return; activateTab(tab); });
   closeEl.addEventListener('mousedown', (e) => { e.stopPropagation(); closeTab(tab); });
+  tabEl.addEventListener('contextmenu', (e) => { e.preventDefault(); openTabMenu(tab, e.clientX, e.clientY); });
 
   activateTab(tab);
   persistSession();
 }
+
+// --- Tab groups ---------------------------------------------------------------
+function tabGroup(t) { return t.groupId != null ? groups.get(t.groupId) : null; }
+function styleTabGroup(t) {
+  const g = tabGroup(t);
+  t.tabEl.style.borderColor = g ? rgba(g.color, 0.55) : '';
+}
+function updateChip(g) {
+  if (!g.chipEl) return;
+  g.chipEl.classList.toggle('unnamed', !g.name);
+  g.chipEl.textContent = g.name;
+  g.chipEl.title = g.name || 'Unnamed group';
+  if (g.name) {
+    g.chipEl.style.background = rgba(g.color, 0.18);
+    g.chipEl.style.borderColor = rgba(g.color, 0.5);
+    g.chipEl.style.color = g.color;
+  } else {
+    g.chipEl.style.background = g.color;
+    g.chipEl.style.borderColor = 'transparent';
+  }
+}
+function makeChip(g) {
+  const el = document.createElement('div');
+  el.className = 'group-chip';
+  el.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); openGroupEditor(g); });
+  g.chipEl = el;
+  updateChip(g);
+  return el;
+}
+// Reorder the strip DOM: each group's chip before its first tab, + button last.
+function renderStrip() {
+  const seen = new Set();
+  for (const t of tabs) {
+    const g = tabGroup(t);
+    if (g && !seen.has(g.id)) {
+      seen.add(g.id);
+      tabsEl.appendChild(g.chipEl || makeChip(g));
+    }
+    tabsEl.appendChild(t.tabEl);
+    styleTabGroup(t);
+  }
+  for (const [id, g] of groups) if (!seen.has(id) && g.chipEl) g.chipEl.remove();
+  tabsEl.appendChild(newTabBtn);
+}
+// Move a tab next to its new group's members (keeps groups contiguous).
+function assignGroup(tab, gid) {
+  tab.groupId = gid;
+  const from = tabs.indexOf(tab);
+  tabs.splice(from, 1);
+  let insert = from;
+  for (let i = tabs.length - 1; i >= 0; i--) {
+    if (tabs[i].groupId === gid) { insert = i + 1; break; }
+  }
+  tabs.splice(Math.min(insert, tabs.length), 0, tab);
+  renderStrip();
+  persistSession();
+}
+function removeFromGroup(tab) {
+  const gid = tab.groupId;
+  tab.groupId = null;
+  // step out just past the group so the block stays contiguous
+  const from = tabs.indexOf(tab);
+  tabs.splice(from, 1);
+  let insert = from;
+  for (let i = tabs.length - 1; i >= 0; i--) {
+    if (tabs[i].groupId === gid) { insert = i + 1; break; }
+  }
+  tabs.splice(insert, 0, tab);
+  dropGroupIfEmpty(gid);
+  renderStrip();
+  persistSession();
+}
+function dropGroupIfEmpty(gid) {
+  if (gid == null || tabs.some((t) => t.groupId === gid)) return;
+  const g = groups.get(gid);
+  if (g?.chipEl) g.chipEl.remove();
+  groups.delete(gid);
+}
+function createGroupWith(tab) {
+  const used = new Set([...groups.values()].map((g) => g.color));
+  const color = GROUP_COLORS.find((c) => !used.has(c)) || GROUP_COLORS[groups.size % GROUP_COLORS.length];
+  const g = { id: ++groupCounter, name: '', color, chipEl: null };
+  groups.set(g.id, g);
+  assignGroup(tab, g.id);
+  openGroupEditor(g); // name it right away, like Chrome
+}
+
+// Group editor popover.
+let editingGroup = null;
+function openGroupEditor(g) {
+  closeCtxMenu();
+  editingGroup = g;
+  geName.value = g.name;
+  geColors.replaceChildren();
+  for (const c of GROUP_COLORS) {
+    const dot = document.createElement('div');
+    dot.className = 'ge-color' + (c === g.color ? ' sel' : '');
+    dot.style.background = c;
+    dot.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      g.color = c;
+      updateChip(g);
+      for (const t of tabs) styleTabGroup(t);
+      geColors.querySelectorAll('.ge-color').forEach((d) => d.classList.toggle('sel', d === dot));
+      persistSession();
+    });
+    geColors.appendChild(dot);
+  }
+  groupEditor.classList.remove('hidden');
+  const r = (g.chipEl || tabsEl).getBoundingClientRect();
+  groupEditor.style.left = `${Math.min(r.left, window.innerWidth - 240)}px`;
+  groupEditor.style.top = `${r.bottom + 8}px`;
+  geName.focus();
+  geName.select();
+}
+function closeGroupEditor() {
+  if (groupEditor.classList.contains('hidden')) return;
+  groupEditor.classList.add('hidden');
+  editingGroup = null;
+  activeTab?.term.focus();
+}
+geName.addEventListener('input', () => {
+  if (!editingGroup) return;
+  editingGroup.name = geName.value.trim();
+  updateChip(editingGroup);
+  persistSession();
+});
+geName.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); closeGroupEditor(); } });
+geUngroup.addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  const g = editingGroup;
+  if (!g) return;
+  for (const t of tabs) if (t.groupId === g.id) t.groupId = null;
+  dropGroupIfEmpty(g.id);
+  closeGroupEditor();
+  renderStrip();
+  persistSession();
+});
+
+// Tab context menu.
+function ctxItem(label, onPick, color) {
+  const row = document.createElement('div');
+  row.className = 'ctx-item';
+  if (color) {
+    const dot = document.createElement('span');
+    dot.className = 'ctx-dot';
+    dot.style.background = color;
+    row.appendChild(dot);
+  }
+  const text = document.createElement('span');
+  text.textContent = label;
+  row.appendChild(text);
+  row.addEventListener('mousedown', (e) => { e.preventDefault(); closeCtxMenu(); onPick(); });
+  return row;
+}
+function openTabMenu(tab, x, y) {
+  closeGroupEditor();
+  ctxMenu.replaceChildren();
+  ctxMenu.appendChild(ctxItem('Add to new group', () => createGroupWith(tab)));
+  for (const g of groups.values()) {
+    if (g.id === tab.groupId) continue;
+    ctxMenu.appendChild(ctxItem(`Add to "${g.name || 'unnamed'}"`, () => assignGroup(tab, g.id), g.color));
+  }
+  if (tab.groupId != null) {
+    ctxMenu.appendChild(ctxItem('Remove from group', () => removeFromGroup(tab)));
+  }
+  ctxMenu.appendChild(Object.assign(document.createElement('div'), { className: 'ctx-sep' }));
+  ctxMenu.appendChild(ctxItem('Close tab', () => closeTab(tab)));
+  ctxMenu.classList.remove('hidden');
+  const w = ctxMenu.offsetWidth, h = ctxMenu.offsetHeight;
+  ctxMenu.style.left = `${Math.min(x, window.innerWidth - w - 8)}px`;
+  ctxMenu.style.top = `${Math.min(y, window.innerHeight - h - 8)}px`;
+}
+function closeCtxMenu() { ctxMenu.classList.add('hidden'); }
+window.addEventListener('mousedown', (e) => {
+  if (!ctxMenu.classList.contains('hidden') && !ctxMenu.contains(e.target)) closeCtxMenu();
+  if (!groupEditor.classList.contains('hidden') && !groupEditor.contains(e.target)
+      && !(editingGroup?.chipEl?.contains(e.target))) closeGroupEditor();
+}, true);
 
 function activateTab(tab) {
   activeTab = tab;
@@ -446,6 +643,8 @@ function closeTab(tab) {
   tab.tabEl.remove();
   const idx = tabs.indexOf(tab);
   if (idx !== -1) tabs.splice(idx, 1);
+  dropGroupIfEmpty(tab.groupId);
+  renderStrip();
   if (activeTab === tab) {
     activeTab = null;
     const next = tabs[idx] || tabs[idx - 1] || null;
@@ -458,7 +657,8 @@ function closeTab(tab) {
 function persistSession() {
   try {
     localStorage.setItem('prism.session', JSON.stringify({
-      cwds: tabs.map((t) => t.cwd || ''),
+      tabs: tabs.map((t) => ({ cwd: t.cwd || '', g: t.groupId })),
+      groups: [...groups.values()].map(({ id, name, color }) => ({ id, name, color })),
       active: Math.max(0, tabs.indexOf(activeTab)),
     }));
   } catch { /* storage unavailable; live session still works */ }
@@ -466,9 +666,20 @@ function persistSession() {
 async function startTabs() {
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem('prism.session')); } catch {}
-  const cwds = (saved?.cwds || []).filter(Boolean).slice(0, MAX_RESTORE_TABS);
-  if (!cwds.length) { await createTab(); return; }
-  for (const cwd of cwds) await createTab(cwd);
+  // legacy format stored plain cwd strings
+  const entries = (saved?.tabs || (saved?.cwds || []).map((cwd) => ({ cwd, g: null })))
+    .filter((e) => e.cwd).slice(0, MAX_RESTORE_TABS);
+  if (!entries.length) { await createTab(); return; }
+  for (const g of saved?.groups || []) {
+    groups.set(g.id, { id: g.id, name: g.name || '', color: g.color, chipEl: null });
+    groupCounter = Math.max(groupCounter, g.id);
+  }
+  for (const e of entries) {
+    await createTab(e.cwd);
+    if (e.g != null && groups.has(e.g)) tabs[tabs.length - 1].groupId = e.g;
+  }
+  for (const [id] of groups) dropGroupIfEmpty(id); // groups whose tabs failed to spawn
+  renderStrip();
   const idx = Math.min(saved.active ?? 0, tabs.length - 1);
   if (tabs[idx]) activateTab(tabs[idx]);
 }
@@ -662,6 +873,14 @@ function renderMission() {
     const st = document.createElement('span'); st.className = 'm-state';
     st.textContent = `${STATE_LABEL[state]} · ${relTime(t.stateSince)}`;
     head.append(dot, title, st);
+    const g = tabGroup(t);
+    if (g) {
+      const tag = document.createElement('span');
+      tag.className = 'm-group';
+      tag.textContent = g.name || '●';
+      tag.style.color = g.color;
+      head.insertBefore(tag, st);
+    }
 
     const cwd = document.createElement('div');
     cwd.className = 'm-cwd';
@@ -704,7 +923,9 @@ window.addEventListener('resize', () => { if (activeTab) fitTab(activeTab); });
 window.addEventListener('keydown', (e) => {
   if (!ready) return;
   if (e.key === 'Escape') {
-    if (!findBar.classList.contains('hidden')) { e.preventDefault(); closeFind(); }
+    if (!ctxMenu.classList.contains('hidden')) { e.preventDefault(); closeCtxMenu(); }
+    else if (!groupEditor.classList.contains('hidden')) { e.preventDefault(); closeGroupEditor(); }
+    else if (!findBar.classList.contains('hidden')) { e.preventDefault(); closeFind(); }
     else if (!paletteEl.classList.contains('hidden')) { e.preventDefault(); closePalette(); }
     else if (!missionEl.classList.contains('hidden')) { e.preventDefault(); closeMission(); }
     else if (!settingsEl.classList.contains('hidden')) { e.preventDefault(); toggleSettings(); }

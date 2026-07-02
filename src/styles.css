@@ -80,9 +80,60 @@ body {
 .tab-progress.err { background: #ff6d6d; }
 .tab-progress.indet { animation: progPulse 1.2s ease-in-out infinite; }
 @keyframes progPulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.9; } }
-.tab-close { margin-left: 2px; opacity: 0; font-size: 14px; line-height: 1; transition: opacity 120ms; }
+.tab-close {
+  display: grid; place-items: center; flex: none;
+  width: 14px; height: 14px; margin-left: 2px;
+  border-radius: 4px; opacity: 0; transition: opacity 120ms;
+}
+.tab-close svg { display: block; width: 10px; height: 10px; fill: currentColor; }
 .tab:hover .tab-close { opacity: 0.6; }
-.tab-close:hover { opacity: 1; }
+.tab-close:hover { opacity: 1; background: rgba(255,255,255,0.14); }
+
+/* --- Tab groups ------------------------------------------------------------ */
+.group-chip {
+  -webkit-app-region: no-drag;
+  flex: none; align-self: center;
+  max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 4px 9px; border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 11px; line-height: 1;
+  cursor: default;
+}
+.group-chip.unnamed { width: 12px; height: 12px; padding: 0; border-radius: 50%; }
+#ctx-menu {
+  position: fixed; z-index: 40; min-width: 180px; padding: 5px;
+  background: rgba(18,19,26,0.97); border: 1px solid var(--stroke); border-radius: 10px;
+}
+#ctx-menu.hidden { display: none; }
+.ctx-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: 7px;
+  font-size: 12px; color: var(--fg); cursor: default;
+}
+.ctx-item:hover { background: rgba(255,255,255,0.1); }
+.ctx-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; }
+.ctx-sep { height: 1px; margin: 5px 8px; background: rgba(255,255,255,0.08); }
+#group-editor {
+  position: fixed; z-index: 40; width: 220px; padding: 12px;
+  background: rgba(18,19,26,0.97); border: 1px solid var(--stroke); border-radius: 12px;
+}
+#group-editor.hidden { display: none; }
+#ge-name {
+  width: 100%; box-sizing: border-box; padding: 7px 9px; margin-bottom: 10px;
+  border: 1px solid var(--stroke); border-radius: 7px;
+  background: rgba(255,255,255,0.06); color: var(--fg);
+  font: 12px 'JetBrains Mono', monospace; outline: none;
+}
+.ge-colors { display: flex; gap: 8px; margin-bottom: 12px; }
+.ge-color { width: 17px; height: 17px; border-radius: 50%; border: 2px solid transparent; cursor: default; }
+.ge-color.sel { border-color: #ffffff; }
+#ge-ungroup {
+  width: 100%; padding: 6px 0;
+  border: 1px solid var(--stroke); border-radius: 8px;
+  background: rgba(255,255,255,0.05); color: var(--fg);
+  font: 11.5px 'JetBrains Mono', monospace; cursor: default;
+}
+#ge-ungroup:hover { background: rgba(255,255,255,0.1); }
 
 #title-actions button {
   -webkit-app-region: no-drag;
@@ -95,10 +146,10 @@ body {
   color: var(--fg);
   cursor: default;
 }
+/* Phosphor icons: single filled paths, so translucent colors never double up. */
 #title-actions button svg, #new-tab svg {
   display: block; width: 16px; height: 16px;
-  fill: none; stroke: currentColor; stroke-width: 1.9;
-  stroke-linecap: round; stroke-linejoin: round;
+  fill: currentColor;
 }
 
 /* The + lives in the tab row, hugging the last tab like browser tabs. */
@@ -274,6 +325,7 @@ body.glow-off #siri { display: none; }
 .m-card[data-state='exited'] .dot { background: #ff6d6d; }
 .m-title { flex: 1; font-size: 12.5px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .m-state { flex: none; font-size: 10.5px; color: var(--fg-dim); }
+.m-group { flex: none; max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; }
 .m-cwd { margin-top: 8px; font-size: 11px; color: var(--fg-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .m-branch { margin-top: 2px; font-size: 10.5px; color: #9bb7ff; }
 .m-files { margin-top: 8px; font-size: 10.5px; color: rgba(232,232,234,0.4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
