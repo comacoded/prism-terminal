@@ -75,12 +75,14 @@
   @keyframes spin { to { --spin: 360deg; } }
 
   /* ------ hero ------ */
-  header { padding: 148px 0 30px; text-align: center; position: relative; }
+  header { padding: 128px 0 20px; position: relative; }
   header::before {
-    content: ''; position: absolute; top: -140px; left: 50%; transform: translateX(-50%);
+    content: ''; position: absolute; top: -140px; left: 60%; transform: translateX(-50%);
     width: 1200px; height: 700px; pointer-events: none;
-    background: radial-gradient(50% 50% at 50% 40%, rgba(120, 100, 220, 0.16) 0%, transparent 70%);
+    background: radial-gradient(50% 50% at 50% 40%, rgba(120, 100, 220, 0.15) 0%, transparent 70%);
   }
+  .hero-grid { display: grid; grid-template-columns: 10fr 11fr; gap: 54px; align-items: center; }
+  @media (max-width: 960px) { .hero-grid { grid-template-columns: 1fr; gap: 44px; } }
   .eyebrow {
     display: inline-flex; align-items: center; gap: 9px;
     font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
@@ -90,9 +92,9 @@
   .eyebrow .pulse-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--violet); animation: pd 1.8s ease-in-out infinite; }
   @keyframes pd { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
   h1 {
-    margin: 40px auto 20px; max-width: 900px;
+    margin: 30px 0 18px;
     font-family: 'Raleway'; font-weight: 100;
-    font-size: clamp(38px, 6.4vw, 76px); line-height: 1.12; letter-spacing: 0.01em;
+    font-size: clamp(34px, 4vw, 54px); line-height: 1.14; letter-spacing: 0.01em;
   }
   h1 .hl {
     background: linear-gradient(100deg, #bc82f3, #8d9fff 40%, #f5b9ea 70%, #ffba71);
@@ -101,8 +103,9 @@
     animation: sheen 7s ease-in-out infinite;
   }
   @keyframes sheen { 0%, 100% { background-position: 0% 0; } 50% { background-position: 120% 0; } }
-  .sub { max-width: 600px; margin: 0 auto; color: var(--dim); font-size: 17px; }
-  .cta-row { display: flex; gap: 14px; justify-content: center; margin: 34px 0 12px; flex-wrap: wrap; }
+  .sub { max-width: 520px; color: var(--dim); font-size: 16.5px; }
+  .cta-row { display: flex; gap: 14px; margin: 30px 0 12px; flex-wrap: wrap; }
+  #download .cta-row { justify-content: center; }
   .btn-glow { position: relative; border-radius: 12px; padding: 1.5px; background: var(--grad); animation: spin 5s linear infinite; transition: transform 160ms; }
   .btn-glow:hover { transform: translateY(-1px); }
   .btn-glow > span { display: flex; align-items: center; gap: 9px; background: #0c0e14; border-radius: 10.5px; padding: 13px 26px; font-size: 15px; font-weight: 600; transition: background 140ms; }
@@ -111,9 +114,8 @@
   .btn-ghost:hover { background: rgba(255,255,255,0.08); transform: translateY(-1px); }
   .req { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
 
-  /* ------ live demo ------ */
-  #demo { padding: 54px 0 8px; }
-  .demo-stage { position: relative; max-width: 880px; margin: 0 auto; }
+  /* ------ live demo (hero, right column) ------ */
+  .demo-stage { position: relative; }
   .demo-halo {
     position: absolute; inset: 8% 6% 0; z-index: 0; border-radius: 40px;
     background: var(--grad); filter: blur(80px) saturate(1.15);
@@ -146,8 +148,8 @@
   .d-tab.active { background: rgba(255,255,255,0.12); color: var(--fg); border-color: rgba(179,136,255,0.5); }
   .d-tab .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); transition: background 400ms, box-shadow 400ms; }
   .d-tab.working .dot { background: var(--violet); box-shadow: 0 0 8px rgba(179,136,255,0.8); }
-  .d-body { display: flex; min-height: 328px; }
-  .d-term { flex: 1; padding: 16px 18px; font-family: var(--mono); font-size: 12.5px; line-height: 1.75; white-space: pre-wrap; overflow: hidden; }
+  .d-body { display: flex; min-height: 296px; }
+  .d-term { flex: 1; padding: 14px 16px; font-family: var(--mono); font-size: 11.5px; line-height: 1.75; white-space: pre-wrap; overflow: hidden; }
   .d-term .dm { color: var(--faint); } .d-term .b { color: var(--blue); } .d-term .v { color: var(--violet); }
   .d-term .g { color: #7ee787; } .d-term .y { color: #e3b341; }
   .d-caret { display: inline-block; width: 7px; height: 15px; background: #fff; vertical-align: -2px; animation: caret 1.05s steps(1) infinite; }
@@ -157,7 +159,7 @@
     transition: width 500ms cubic-bezier(0.3, 0.7, 0, 1), border-color 500ms;
     font-family: var(--mono);
   }
-  .demo-stage.rail-open .d-rail { width: 218px; border-color: rgba(255,255,255,0.07); }
+  .demo-stage.rail-open .d-rail { width: 186px; border-color: rgba(255,255,255,0.07); }
   .d-rail-head { padding: 12px 14px 9px; font-size: 11px; border-bottom: 1px solid rgba(255,255,255,0.06); white-space: nowrap; }
   .d-rail-head .cnt { color: var(--blue); }
   .d-rail-head .cwd { color: var(--faint); font-size: 10px; margin-top: 2px; }
@@ -171,10 +173,10 @@
   .demo-stage.done .d-footer .ok { opacity: 1; }
   .d-footer .proc { color: #9bb7ff; }
 
-  .demo-steps { display: flex; gap: 10px; justify-content: center; margin-top: 26px; flex-wrap: wrap; }
+  .demo-steps { display: flex; gap: 8px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
   .demo-step {
-    font-family: var(--mono); font-size: 11.5px; color: var(--faint);
-    border: 1px solid var(--stroke); border-radius: 999px; padding: 7px 16px;
+    font-family: var(--mono); font-size: 10.5px; color: var(--faint);
+    border: 1px solid var(--stroke); border-radius: 999px; padding: 6px 13px;
     transition: color 400ms, border-color 400ms, background 400ms;
   }
   .demo-step.on { color: var(--fg); border-color: rgba(179,136,255,0.55); background: rgba(179,136,255,0.1); }
@@ -191,29 +193,6 @@
   h2 { font-size: clamp(26px, 4vw, 40px); line-height: 1.16; letter-spacing: -0.02em; font-weight: 700; }
   .lede { color: var(--dim); margin-top: 14px; font-size: 16.5px; max-width: 560px; }
 
-  .steps { counter-reset: step; margin-top: 54px; display: grid; gap: 14px; }
-  .step {
-    display: grid; grid-template-columns: 72px 1fr 1.1fr; gap: 26px; align-items: center;
-    border: 1px solid var(--stroke); border-radius: 18px; padding: 30px 34px;
-    background: var(--card);
-    transition: border-color 200ms;
-  }
-  .step:hover { border-color: rgba(179,136,255,0.35); }
-  @media (max-width: 860px) { .step { grid-template-columns: 1fr; gap: 14px; } }
-  .step .num { font-family: 'Raleway'; font-weight: 100; font-size: 52px; color: var(--faint); }
-  .step h3 { font-size: 20px; margin-bottom: 8px; }
-  .step p { color: var(--dim); font-size: 14.5px; }
-  .step .viz { font-family: var(--mono); font-size: 12px; color: var(--dim); border-left: 1px solid var(--stroke); padding-left: 26px; min-height: 74px; display: flex; flex-direction: column; justify-content: center; gap: 5px; }
-  @media (max-width: 860px) { .step .viz { border-left: none; padding-left: 0; border-top: 1px solid var(--stroke); padding-top: 16px; } }
-  .viz .vd { width: 8px; height: 8px; border-radius: 50%; display: inline-block; vertical-align: middle; margin-right: 8px; }
-  .viz .working .vd { background: var(--violet); animation: pd 1.6s ease-in-out infinite; }
-  .viz .waiting .vd { background: var(--blue); }
-  .viz .idle .vd { background: var(--faint); }
-  .viz .file-row { opacity: 0.4; animation: filein 6s linear infinite; }
-  .viz .file-row:nth-child(2) { animation-delay: 2s; }
-  .viz .file-row:nth-child(3) { animation-delay: 4s; }
-  @keyframes filein { 0%, 10% { opacity: 0.35; } 14%, 60% { opacity: 1; } 100% { opacity: 0.35; } }
-  .viz .tick { color: #7ee787; }
 
   .feature { display: grid; grid-template-columns: 5fr 7fr; gap: 56px; align-items: center; padding: 72px 0; }
   .feature.flip .copy { order: 2; }
@@ -224,21 +203,7 @@
   .feature li { padding: 5px 0 5px 24px; position: relative; }
   .feature li::before { content: '❯'; position: absolute; left: 2px; color: var(--blue); font-family: var(--mono); font-size: 12px; }
   .shot { border-radius: 14px; border: 1px solid rgba(255,255,255,0.13); overflow: hidden; }
-  .shot.crop-top img { aspect-ratio: 16 / 7.4; object-fit: cover; object-position: top; width: 100%; }
-  .shot.crop-mid img { aspect-ratio: 16 / 8.6; object-fit: cover; object-position: 50% 16%; width: 100%; }
 
-  /* ------ compare ------ */
-  .compare { border: 1px solid var(--stroke); border-radius: 18px; overflow: hidden; margin-top: 48px; }
-  .compare table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  .compare th, .compare td { padding: 15px 22px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); }
-  .compare tr:last-child td { border-bottom: none; }
-  .compare th { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); font-weight: 400; }
-  .compare td:first-child { color: var(--dim); }
-  .compare .yes { color: #7ee787; } .compare .no { color: var(--faint); }
-  .compare .them { color: var(--dim); }
-  .compare td.prism-col { background: rgba(179,136,255,0.05); }
-  .compare th.prism-col { color: var(--violet); background: rgba(179,136,255,0.05); }
-  @media (max-width: 700px) { .compare th, .compare td { padding: 12px 12px; font-size: 12.5px; } }
 
   /* ------ restore ------ */
   .restore { text-align: center; border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); padding: 72px 24px; }
@@ -301,8 +266,6 @@
       prism
     </a>
     <div class="nav-links">
-      <a href="#demo">Demo</a>
-      <a href="#why">Why</a>
       <a href="#features">Features</a>
       <a href="#api">API</a>
       <a href="#faq">FAQ</a>
@@ -313,21 +276,21 @@
 </nav>
 
 <header>
-  <div class="wrap">
-    <span class="eyebrow"><span class="pulse-dot"></span> agent-native terminal for macOS</span>
-    <h1>The terminal that knows<br />your agent is <span class="hl">working</span>.</h1>
-    <p class="sub">Ghostty ignores your agent. Warp wants to replace it. PRISM supervises the agents you already trust and makes running a fleet of them feel like a flight deck.</p>
-    <div class="cta-row">
-      <a class="btn-glow" href="https://github.com/comacoded/prism-terminal/releases/latest"><span>⬇ Download for macOS</span></a>
-      <a class="btn-ghost" href="https://github.com/comacoded/prism-terminal">View on GitHub</a>
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <span class="eyebrow"><span class="pulse-dot"></span> agent-native terminal for macOS</span>
+      <h1>The terminal that knows your agent is <span class="hl">working</span>.</h1>
+      <p class="sub">Ghostty ignores your agent. Warp wants to replace it. PRISM supervises the agents you already trust and makes running a fleet of them feel like a flight deck.</p>
+      <div class="cta-row">
+        <a class="btn-glow" href="https://github.com/comacoded/prism-terminal/releases/latest"><span>⬇ Download for macOS</span></a>
+        <a class="btn-ghost" href="https://github.com/comacoded/prism-terminal">View on GitHub</a>
+      </div>
+      <p class="req">macOS 13+ · Apple silicon · free and open source</p>
     </div>
-    <p class="req">macOS 13+ · Apple silicon · free and open source</p>
-  </div>
-</header>
 
-<!-- Live product demo: a scripted loop of the real interaction model. -->
-<div id="demo" class="wrap">
-  <div class="demo-stage rv" id="stage">
+    <!-- Live product demo: a scripted loop of the real interaction model. -->
+    <div class="hero-demo">
+  <div class="demo-stage" id="stage">
     <div class="demo-halo"></div>
     <div class="demo-win">
       <div class="demo-border"></div>
@@ -353,13 +316,15 @@
       </div>
     </div>
   </div>
-  <div class="demo-steps rv d1">
+  <div class="demo-steps">
     <span class="demo-step" id="s1">1 · agent detected</span>
-    <span class="demo-step" id="s2">2 · the window glows while it works</span>
-    <span class="demo-step" id="s3">3 · every file it touches, tracked</span>
-    <span class="demo-step" id="s4">4 · done, back to calm</span>
+    <span class="demo-step" id="s2">2 · glows while it works</span>
+    <span class="demo-step" id="s3">3 · every file tracked</span>
+    <span class="demo-step" id="s4">4 · back to calm</span>
   </div>
-</div>
+    </div>
+  </div>
+</header>
 
 <div class="marquee rv">
   <div class="marquee-in" id="mq">
@@ -370,52 +335,7 @@
   </div>
 </div>
 
-<section id="why">
-  <div class="wrap">
-    <div class="rv">
-      <div class="kicker">Why it exists</div>
-      <h2>Terminals treat AI agents as just another process.<br />PRISM treats them as the main event.</h2>
-    </div>
-    <div class="steps">
-      <div class="step rv">
-        <div class="num">01</div>
-        <div>
-          <h3>Run a fleet</h3>
-          <p>The window wears an animated glow while an agent is generating. Tabs show working, waiting, or idle at a glance. Mission control lays every session out as a live card.</p>
-        </div>
-        <div class="viz">
-          <div class="working"><span class="vd"></span>claude <span style="opacity:.5">· working · 2m</span></div>
-          <div class="waiting"><span class="vd"></span>codex <span style="opacity:.5">· waiting on you</span></div>
-          <div class="idle"><span class="vd"></span>scratch <span style="opacity:.5">· shell</span></div>
-        </div>
-      </div>
-      <div class="step rv">
-        <div class="num">02</div>
-        <div>
-          <h3>See every file it touches</h3>
-          <p>The artifacts rail opens itself the moment an agent starts writing: every file it creates or edits, newest first, with the working folder on top. Come back from coffee and know exactly what happened.</p>
-        </div>
-        <div class="viz">
-          <div class="file-row">src/main.js <span style="opacity:.5">· 14s</span></div>
-          <div class="file-row">src/styles.css <span style="opacity:.5">· 52s</span></div>
-          <div class="file-row">FEATURES.md <span style="opacity:.5">· 6m</span></div>
-        </div>
-      </div>
-      <div class="step rv">
-        <div class="num">03</div>
-        <div>
-          <h3>Let agents drive</h3>
-          <p>A Unix socket API and a <span class="mono" style="font-size:13px">prism</span> CLI in every shell. Agents can open panes, run commands beside themselves, read screens, and post notifications.</p>
-        </div>
-        <div class="viz">
-          <div><span class="c-dim">❯</span> prism split row</div>
-          <div><span class="c-dim">❯</span> prism send 4 "npm test"</div>
-          <div><span class="tick">✓</span> 42 passing</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+
 
 <section id="features" style="padding-top: 20px;">
   <div class="wrap">
@@ -430,7 +350,7 @@
           <li>drag tabs between groups; click a chip to collapse a group</li>
         </ul>
       </div>
-      <div class="shot crop-top rv d1"><img src="assets/mission.png" loading="lazy" alt="Mission control: a grid of session cards showing agent states, branches, and touched files" /></div>
+      <div class="shot rv d1"><img src="assets/mission.png" loading="lazy" alt="Mission control: a grid of session cards showing agent states, branches, and touched files" /></div>
     </div>
 
     <div class="feature flip">
@@ -453,23 +373,9 @@
         <h2>Ten themes over real glass.</h2>
         <p>Native macOS vibrancy with a tint you control. Pick themes from live preview cards: PRISM, Dark, Light, Dracula, Cyber Wave, Nord, One Dark, Solarized, Gruvbox, Catppuccin. Light mode restyles the entire chrome.</p>
       </div>
-      <div class="shot crop-mid rv d1"><img src="assets/themes.png" loading="lazy" alt="Settings with Warp-style theme preview cards" /></div>
+      <div class="shot rv d1"><img src="assets/themes.png" loading="lazy" alt="Settings with Warp-style theme preview cards" /></div>
     </div>
 
-    <div class="rv" style="margin-top: 40px;">
-      <div class="kicker">Where it sits</div>
-      <h2>Between a great terminal and an agent platform.</h2>
-      <div class="compare">
-        <table>
-          <tr><th></th><th class="them">Ghostty</th><th class="them">Warp</th><th class="prism-col">PRISM</th></tr>
-          <tr><td>Knows when your agent is working</td><td class="no">–</td><td class="them">own agent only</td><td class="prism-col yes">any CLI agent</td></tr>
-          <tr><td>Tracks files the agent touches</td><td class="no">–</td><td class="no">–</td><td class="prism-col yes">artifacts rail</td></tr>
-          <tr><td>Bundled AI / accounts required</td><td class="yes">none</td><td class="them">yes</td><td class="prism-col yes">none</td></tr>
-          <tr><td>Programmable by the agent itself</td><td class="no">–</td><td class="no">–</td><td class="prism-col yes">socket API</td></tr>
-          <tr><td>Session restore with scrollback</td><td class="no">–</td><td class="them">partial</td><td class="prism-col yes">yes</td></tr>
-        </table>
-      </div>
-    </div>
   </div>
 </section>
 
@@ -635,7 +541,7 @@
       let secs = 3;
       const spin = () => {
         dterm.innerHTML = html +
-          `<span class="v">✳</span> <span class="dm">Cooking… (${secs}s · ↑ ${(secs * 0.9).toFixed(1)}k tokens · esc to interrupt)</span>`;
+          `<span class="v">✳</span> <span class="dm">Cooking… (${secs}s · ↑ ${(secs * 0.9).toFixed(1)}k tokens)</span>`;
         secs++;
       };
       spin();
