@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PRISM: the terminal that knows your agent is working</title>
+<meta name="description" content="A glass terminal for macOS built for the age of AI coding agents. See when Claude is working, what files it touched, and drive every pane from a socket API." />
+<meta property="og:title" content="PRISM" />
+<meta property="og:description" content="The terminal that knows your agent is working." />
+<meta property="og:image" content="assets/hero.png" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 148 148'%3E%3Crect x='6' y='6' width='136' height='136' rx='38' fill='%230b0d12'/%3E%3Cpath d='M52 42 L103 74 L52 106' stroke='%23f2f3f7' stroke-width='10.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+<style>
+  @font-face { font-family: 'Raleway'; font-weight: 100; src: url('assets/fonts/Raleway-Thin.woff2') format('woff2'); }
+  @font-face { font-family: 'JetBrains Mono'; font-weight: 400; src: url('assets/fonts/JetBrainsMono-Regular.woff2') format('woff2'); }
+  @font-face { font-family: 'JetBrains Mono'; font-weight: 700; src: url('assets/fonts/JetBrainsMono-Bold.woff2') format('woff2'); }
+
+  @property --spin { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+  :root {
+    --bg: #0a0c11;
+    --fg: #e8e8ea;
+    --dim: rgba(232, 232, 234, 0.6);
+    --faint: rgba(232, 232, 234, 0.38);
+    --stroke: rgba(255, 255, 255, 0.1);
+    --card: rgba(255, 255, 255, 0.03);
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --grad: conic-gradient(from var(--spin), #bc82f3, #f5b9ea, #8d9fff, #ff6778, #ffba71, #c686ff, #bc82f3);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background:
+      radial-gradient(90% 55% at 50% -10%, rgba(90, 80, 190, 0.16) 0%, transparent 60%),
+      radial-gradient(70% 40% at 85% 30%, rgba(188, 130, 243, 0.05) 0%, transparent 60%),
+      var(--bg);
+    color: var(--fg);
+    font: 16px/1.65 -apple-system, 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  a { color: inherit; text-decoration: none; }
+  img { max-width: 100%; display: block; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+  /* --- nav --- */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    background: rgba(10, 12, 17, 0.65);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .nav-in { display: flex; align-items: center; gap: 26px; height: 58px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: 'Raleway'; font-weight: 100; font-size: 19px; letter-spacing: 0.35em; }
+  .brand svg { width: 24px; height: 24px; }
+  .nav-links { display: flex; gap: 22px; margin-left: auto; font-size: 13.5px; color: var(--dim); }
+  .nav-links a:hover { color: var(--fg); }
+  .nav-cta { font-size: 13px; padding: 7px 16px; border-radius: 9px; border: 1px solid var(--stroke); background: rgba(255,255,255,0.05); }
+  .nav-cta:hover { background: rgba(255,255,255,0.1); }
+  @media (max-width: 720px) { .nav-links { display: none; } }
+
+  /* --- ring mark --- */
+  .ring-mark { position: relative; }
+  .ring-mark .ring {
+    position: absolute; inset: 0; border-radius: 28%;
+    background: var(--grad);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    padding: 7%;
+    animation: spin 6s linear infinite;
+  }
+  @keyframes spin { to { --spin: 360deg; } }
+
+  /* --- hero --- */
+  header { padding: 150px 0 40px; text-align: center; position: relative; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--dim); border: 1px solid var(--stroke); border-radius: 999px; padding: 6px 14px;
+    background: rgba(255,255,255,0.03);
+  }
+  .eyebrow .pulse-dot { width: 7px; height: 7px; border-radius: 50%; background: #b388ff; animation: pd 1.6s ease-in-out infinite; }
+  @keyframes pd { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+  h1 {
+    margin: 34px 0 8px;
+    font-family: 'Raleway'; font-weight: 100;
+    font-size: clamp(64px, 11vw, 128px); line-height: 1;
+    letter-spacing: 0.28em; padding-left: 0.28em;
+    background: linear-gradient(120deg, #ffffff 20%, #c3d2f6 45%, #ffffff 60%, #a6b5e6 80%, #ffffff 100%);
+    background-size: 200% 100%;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: sheen 9s ease-in-out infinite;
+  }
+  @keyframes sheen { 0%, 100% { background-position: 0% 0; } 50% { background-position: 140% 0; } }
+  .tagline { font-size: clamp(21px, 3vw, 30px); font-weight: 500; letter-spacing: -0.01em; }
+  .sub { max-width: 620px; margin: 16px auto 0; color: var(--dim); font-size: 17px; }
+  .cta-row { display: flex; gap: 14px; justify-content: center; margin: 34px 0 10px; flex-wrap: wrap; }
+  .btn-glow { position: relative; border-radius: 12px; padding: 2px; background: var(--grad); animation: spin 5s linear infinite; }
+  .btn-glow > span {
+    display: flex; align-items: center; gap: 9px;
+    background: #0d0f15; border-radius: 10px; padding: 13px 26px;
+    font-size: 15px; font-weight: 600;
+  }
+  .btn-glow:hover > span { background: #151824; }
+  .btn-ghost {
+    display: flex; align-items: center; gap: 9px;
+    padding: 15px 26px; border-radius: 12px;
+    border: 1px solid var(--stroke); background: rgba(255,255,255,0.04);
+    font-size: 15px; color: var(--fg);
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.08); }
+  .req { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
+
+  /* --- hero shot --- */
+  .hero-shot { position: relative; margin: 56px auto 0; max-width: 1060px; padding: 0 24px; }
+  .hero-shot .halo {
+    position: absolute; inset: 6% 10% 2%; z-index: 0;
+    background: var(--grad);
+    filter: blur(90px) saturate(1.1); opacity: 0.24;
+    animation: spin 11s linear infinite;
+  }
+  .hero-shot img {
+    position: relative; z-index: 1;
+    border-radius: 14px; border: 1px solid rgba(255,255,255,0.14);
+  }
+
+  /* --- badge strip --- */
+  .badges { display: flex; flex-wrap: wrap; gap: 9px; justify-content: center; padding: 46px 24px 10px; }
+  .badges span {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em;
+    color: var(--dim); border: 1px solid var(--stroke); border-radius: 999px; padding: 5px 13px;
+  }
+
+  /* --- sections --- */
+  section { padding: 90px 0; }
+  .kicker { font-family: var(--mono); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #b388ff; margin-bottom: 12px; }
+  h2 { font-size: clamp(28px, 4.5vw, 42px); line-height: 1.15; letter-spacing: -0.02em; font-weight: 700; }
+  .lede { color: var(--dim); margin-top: 14px; font-size: 17px; max-width: 560px; }
+
+  .trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 46px; }
+  @media (max-width: 860px) { .trio { grid-template-columns: 1fr; } }
+  .use {
+    border: 1px solid var(--stroke); border-radius: 16px; padding: 26px;
+    background: var(--card);
+    transition: border-color 160ms ease, transform 160ms ease;
+  }
+  .use:hover { border-color: rgba(179, 136, 255, 0.4); transform: translateY(-2px); }
+  .use .n { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+  .use h3 { font-size: 19px; margin: 10px 0 8px; }
+  .use p { color: var(--dim); font-size: 14.5px; }
+
+  .feature { display: grid; grid-template-columns: 5fr 7fr; gap: 54px; align-items: center; padding: 70px 0; }
+  .feature.flip { grid-template-columns: 7fr 5fr; }
+  .feature.flip .copy { order: 2; }
+  @media (max-width: 900px) { .feature, .feature.flip { grid-template-columns: 1fr; gap: 26px; } .feature.flip .copy { order: 0; } }
+  .feature h2 { font-size: clamp(24px, 3.2vw, 32px); }
+  .feature p { color: var(--dim); margin-top: 12px; font-size: 15.5px; }
+  .feature ul { margin: 16px 0 0; padding: 0; list-style: none; color: var(--dim); font-size: 14.5px; }
+  .feature li { padding: 5px 0 5px 24px; position: relative; }
+  .feature li::before { content: '❯'; position: absolute; left: 2px; color: #79b8ff; font-family: var(--mono); font-size: 12px; }
+  .shot { border-radius: 12px; border: 1px solid rgba(255,255,255,0.13); overflow: hidden; }
+  .shot.crop-top img { aspect-ratio: 16 / 7.4; object-fit: cover; object-position: top; width: 100%; }
+  .shot.crop-mid img { aspect-ratio: 16 / 8.4; object-fit: cover; object-position: 50% 18%; width: 100%; }
+
+  /* --- api --- */
+  .api-grid { display: grid; grid-template-columns: 5fr 7fr; gap: 54px; align-items: center; }
+  @media (max-width: 900px) { .api-grid { grid-template-columns: 1fr; } }
+  .termbox {
+    border-radius: 14px; border: 1px solid rgba(255,255,255,0.13);
+    background: #0d1016; overflow: hidden;
+  }
+  .termbox .tbar { display: flex; gap: 7px; padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+  .termbox .tbar span { width: 11px; height: 11px; border-radius: 50%; }
+  .termbox pre {
+    padding: 20px 22px; overflow-x: auto;
+    font-family: var(--mono); font-size: 13px; line-height: 1.8; color: var(--fg);
+  }
+  .c-dim { color: var(--faint); } .c-b { color: #79b8ff; } .c-g { color: #7ee787; } .c-v { color: #d2a8ff; } .c-y { color: #e3b341; }
+
+  /* --- restore strip --- */
+  .restore {
+    text-align: center; border-top: 1px solid rgba(255,255,255,0.06); border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 66px 24px;
+  }
+  .restore .mark { font-family: var(--mono); font-size: 13px; color: var(--faint); letter-spacing: 0.1em; }
+  .restore h2 { margin-top: 10px; }
+  .restore p { color: var(--dim); max-width: 540px; margin: 12px auto 0; }
+
+  /* --- download --- */
+  #download { text-align: center; padding: 110px 0 100px; }
+  #download .big-mark { width: 92px; height: 92px; margin: 0 auto 30px; position: relative; }
+  #download .big-mark svg { position: absolute; inset: 0; }
+
+  footer {
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding: 34px 0; font-size: 13px; color: var(--faint);
+  }
+  .foot-in { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .foot-in a:hover { color: var(--fg); }
+  .foot-in .spacer { flex: 1; }
+
+  /* --- reveal on scroll --- */
+  .rv { opacity: 0; transform: translateY(22px); transition: opacity 700ms ease, transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+  .rv.in { opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap nav-in">
+    <a class="brand" href="#">
+      <span class="ring-mark" style="width:24px;height:24px"><span class="ring"></span>
+        <svg viewBox="0 0 148 148"><path d="M56 48 L98 74 L56 100" stroke="#f2f3f7" stroke-width="11" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      prism
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#api">API</a>
+      <a href="https://github.com/comacoded/prism-terminal/blob/main/FEATURES.md">Docs</a>
+      <a href="https://github.com/comacoded/prism-terminal">GitHub</a>
+    </div>
+    <a class="nav-cta" href="#download">Download</a>
+  </div>
+</nav>
+
+<header>
+  <div class="wrap">
+    <span class="eyebrow"><span class="pulse-dot"></span> agent-native terminal for macOS</span>
+    <h1>prism</h1>
+    <p class="tagline">The terminal that knows your agent is working.</p>
+    <p class="sub">Ghostty ignores your agent. Warp wants to replace it. PRISM supervises the agents you already trust (Claude Code, Codex, anything in a shell) and makes running a fleet of them feel like a flight deck.</p>
+    <div class="cta-row">
+      <a class="btn-glow" href="https://github.com/comacoded/prism-terminal/releases/latest"><span>⬇ Download for macOS</span></a>
+      <a class="btn-ghost" href="https://github.com/comacoded/prism-terminal">View on GitHub</a>
+    </div>
+    <p class="req">macOS 13+ · Apple silicon · free</p>
+  </div>
+  <div class="hero-shot rv">
+    <div class="halo"></div>
+    <img src="assets/hero.png" alt="PRISM running a Claude session in a split pane, with the work glow active, tab groups, and the artifacts rail listing files the agent touched" />
+  </div>
+  <div class="badges rv">
+    <span>xterm-grade emulation</span><span>WebGL renderer</span><span>OSC 7 · 8 · 52 · 133</span>
+    <span>sixel + iTerm images</span><span>zsh integration, zero setup</span><span>native glass</span>
+  </div>
+</header>
+
+<section id="features">
+  <div class="wrap">
+    <div class="rv">
+      <div class="kicker">Why it exists</div>
+      <h2>Terminals treat AI agents as just another process.<br />PRISM treats them as the main event.</h2>
+    </div>
+    <div class="trio">
+      <div class="use rv">
+        <div class="n">01</div>
+        <h3>Run a fleet</h3>
+        <p>The window wears an animated glow while an agent is generating. Tabs show working, waiting, or idle at a glance, and long commands notify you when you're elsewhere. No more alt-tabbing to check "does it need me yet?"</p>
+      </div>
+      <div class="use rv">
+        <div class="n">02</div>
+        <h3>See every file it touches</h3>
+        <p>The artifacts rail opens itself the moment an agent starts writing files: every file it creates or edits, newest first, with the working folder on top. Click to reveal in Finder. Come back from coffee and know exactly what happened.</p>
+      </div>
+      <div class="use rv">
+        <div class="n">03</div>
+        <h3>Let agents drive</h3>
+        <p>A Unix socket API and a <code style="font-family:var(--mono);font-size:13px">prism</code> CLI in every shell. Agents can open panes, run commands beside themselves, read screens, and post notifications. The terminal becomes a tool the agent uses.</p>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="copy rv">
+        <div class="kicker">Mission control</div>
+        <h2>Every session at a glance.</h2>
+        <p>One keystroke shows every tab as a live card: agent state and how long it's been there, working directory, git branch, and the last files touched. Click to jump in.</p>
+        <ul>
+          <li>working / waiting / idle states per session</li>
+          <li>tab groups with names and colors, Chrome-style</li>
+          <li>drag tabs between groups; click a chip to collapse a whole group</li>
+        </ul>
+      </div>
+      <div class="shot crop-top rv"><img src="assets/mission.png" alt="Mission control: a grid of session cards showing agent states, branches, and touched files" /></div>
+    </div>
+
+    <div class="feature flip">
+      <div class="copy rv">
+        <div class="kicker">Splits + telemetry</div>
+        <h2>Agent on the left.<br />Proof on the right.</h2>
+        <p>Split panes with independent shells and per-pane agent detection. The footer tracks your working directory, branch, and every command's exit status and duration through real shell integration, injected automatically, no dotfile edits.</p>
+        <ul>
+          <li>⌘D split right, ⇧⌘D split down</li>
+          <li>jump between prompts with ⌘↑ ⌘↓</li>
+          <li>commands over 15s notify you when you're away</li>
+        </ul>
+      </div>
+      <div class="shot rv"><img src="assets/hero.png" alt="Split panes with a Claude session and test output side by side" /></div>
+    </div>
+
+    <div class="feature">
+      <div class="copy rv">
+        <div class="kicker">Make it yours</div>
+        <h2>Ten themes over real glass.</h2>
+        <p>Native macOS vibrancy with a tint you control. Pick themes from live preview cards: PRISM, Dark, Light, Dracula, Cyber Wave, Nord, One Dark, Solarized, Gruvbox, Catppuccin. Light mode restyles the entire chrome, not just the colors.</p>
+      </div>
+      <div class="shot crop-mid rv"><img src="assets/themes.png" alt="Settings with Warp-style theme preview cards" /></div>
+    </div>
+
+    <div class="feature flip">
+      <div class="copy rv">
+        <div class="kicker">Fast paths</div>
+        <h2>A palette for everything.</h2>
+        <p>⌘P opens a fuzzy command palette with every action and every open session. ⌘F searches scrollback with live highlights. Standard terminal keys everywhere, and the full shortcut map lives one ⌘, away.</p>
+      </div>
+      <div class="shot crop-top rv"><img src="assets/palette.png" alt="The command palette over a Cyber Wave themed session" /></div>
+    </div>
+  </div>
+</section>
+
+<div class="restore rv">
+  <div class="mark">── restored ──</div>
+  <h2>Quit. Relaunch. Nothing lost.</h2>
+  <p>PRISM restores your tabs, split layouts, groups, names, and the contents of every pane, scrollback included. You pick up mid-thought, exactly where the screen was.</p>
+</div>
+
+<section id="api">
+  <div class="wrap api-grid">
+    <div class="copy rv">
+      <div class="kicker">Programmable</div>
+      <h2>A terminal your agent can drive.</h2>
+      <p class="lede">Every shell gets <code style="font-family:var(--mono);font-size:13px">$PRISM_SOCKET</code> and a <code style="font-family:var(--mono);font-size:13px">prism</code> command. List sessions with live agent states, open tabs and splits, type into any pane, read any screen, post notifications. Newline-delimited JSON, no dependencies.</p>
+    </div>
+    <div class="termbox rv">
+      <div class="tbar"><span style="background:#ff5f57"></span><span style="background:#febc2e"></span><span style="background:#28c840"></span></div>
+      <pre><span class="c-dim">~/dev/prism</span> <span class="c-b">❯</span> prism list
+<span class="c-dim">{"tabs":[{"title":"claude","panes":[{"id":1,</span>
+<span class="c-dim">  "agent":true,"working":true, …}]}, …]}</span>
+
+<span class="c-dim">~/dev/prism</span> <span class="c-b">❯</span> prism split row
+<span class="c-dim">{"pane":4}</span>
+
+<span class="c-dim">~/dev/prism</span> <span class="c-b">❯</span> prism send 4 <span class="c-y">"npm test"</span>
+<span class="c-dim">~/dev/prism</span> <span class="c-b">❯</span> prism read 4
+<span class="c-g">  ✓ 42 passing</span> <span class="c-dim">(1.2s)</span>
+
+<span class="c-dim">~/dev/prism</span> <span class="c-b">❯</span> prism notify <span class="c-y">"review ready"</span> <span class="c-v">✦</span></pre>
+    </div>
+  </div>
+</section>
+
+<section id="download">
+  <div class="wrap rv">
+    <div class="big-mark ring-mark"><span class="ring"></span>
+      <svg viewBox="0 0 148 148"><path d="M56 46 L102 74 L56 102" stroke="#f2f3f7" stroke-width="11" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <h2>Bring your own agent.</h2>
+    <p class="lede" style="margin: 14px auto 0;">Free and open source. One small DMG, no accounts, no bundled model, no telemetry. Your agents, supervised.</p>
+    <div class="cta-row" style="margin-top: 30px;">
+      <a class="btn-glow" href="https://github.com/comacoded/prism-terminal/releases/latest"><span>⬇ Download PRISM for macOS</span></a>
+      <a class="btn-ghost" href="https://github.com/comacoded/prism-terminal/blob/main/FEATURES.md">Read the docs</a>
+    </div>
+    <p class="req">PRISM_0.1.0_aarch64.dmg · macOS 13+ · Apple silicon</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-in">
+    <span class="brand" style="font-size:15px; letter-spacing:0.3em;">prism</span>
+    <span>Designed and built by <a href="https://nickcoma.io" style="color:var(--dim)">Nick Coma</a></span>
+    <span class="spacer"></span>
+    <a href="https://github.com/comacoded/prism-terminal">GitHub</a>
+    <a href="https://github.com/comacoded/prism-terminal/blob/main/FEATURES.md">Documentation</a>
+    <a href="https://github.com/comacoded/prism-terminal/releases/latest">Releases</a>
+  </div>
+</footer>
+
+<script>
+  const io = new IntersectionObserver((entries) => {
+    for (const en of entries) if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.rv').forEach((el) => io.observe(el));
+</script>
+</body>
+</html>
