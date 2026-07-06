@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PRISM Docs</title>
+<meta name="description" content="Documentation for PRISM, the agent-native terminal for macOS: tabs, groups, splits, agent supervision, shell integration, themes, and the socket API." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 148 148'%3E%3Crect x='6' y='6' width='136' height='136' rx='38' fill='%230b0d12'/%3E%3Cpath d='M52 42 L103 74 L52 106' stroke='%23f2f3f7' stroke-width='10.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+<style>
+  @font-face { font-family: 'Raleway'; font-weight: 400; src: url('../assets/fonts/Raleway-Regular.woff2') format('woff2'); }
+  @font-face { font-family: 'JetBrains Mono'; font-weight: 400; src: url('../assets/fonts/JetBrainsMono-Regular.woff2') format('woff2'); }
+  @font-face { font-family: 'JetBrains Mono'; font-weight: 700; src: url('../assets/fonts/JetBrainsMono-Bold.woff2') format('woff2'); }
+  :root {
+    --bg: #eef0f5; --fg: #1c1f2a;
+    --dim: rgba(28, 31, 42, 0.64); --faint: rgba(28, 31, 42, 0.42);
+    --stroke: rgba(22, 26, 44, 0.12);
+    --violet: #8250df; --blue: #2f6fed;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background:
+      radial-gradient(52% 30% at 12% 0%, rgba(188, 130, 243, 0.16) 0%, transparent 70%),
+      radial-gradient(46% 26% at 90% 4%, rgba(121, 184, 255, 0.18) 0%, transparent 70%),
+      var(--bg);
+    background-attachment: fixed;
+    color: var(--fg);
+    font: 15.5px/1.7 -apple-system, 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  nav.top {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50; height: 56px;
+    display: flex; align-items: center; gap: 14px; padding: 0 22px;
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    background: rgba(255, 255, 255, 0.6);
+    border-bottom: 1px solid rgba(22, 26, 44, 0.08);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: 'Raleway'; font-weight: 400; font-size: 16px; letter-spacing: 0.3em; color: var(--fg); }
+  .brand:hover { text-decoration: none; }
+  .brand .tile { width: 22px; height: 22px; background: #0d1014; border-radius: 28%; display: grid; place-items: center; }
+  .brand svg { width: 14px; height: 14px; }
+  nav.top .crumb { color: var(--faint); font-size: 13px; }
+  nav.top .links { margin-left: auto; display: flex; gap: 18px; font-size: 13px; }
+
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); max-width: 1180px; margin: 0 auto; padding: 88px 24px 80px; gap: 48px; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .side { position: static !important; max-height: none !important; } }
+
+  .side { position: sticky; top: 84px; align-self: start; max-height: calc(100vh - 110px); overflow-y: auto; font-size: 13.5px; }
+  .side .grp { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); margin: 18px 0 6px; }
+  .side a { display: block; padding: 5px 10px; border-radius: 7px; color: var(--dim); }
+  .side a:hover { text-decoration: none; background: rgba(255,255,255,0.7); color: var(--fg); }
+  .side a.on { background: rgba(130, 80, 223, 0.1); color: var(--violet); font-weight: 600; }
+
+  main { min-width: 0; }
+  section { margin-bottom: 56px; scroll-margin-top: 76px; }
+  h1 { font-size: 34px; letter-spacing: -0.02em; margin-bottom: 10px; }
+  .lede { color: var(--dim); font-size: 16.5px; max-width: 640px; margin-bottom: 8px; }
+  h2 { font-size: 22px; letter-spacing: -0.01em; margin-bottom: 12px; padding-top: 6px; }
+  h3 { font-size: 16px; margin: 22px 0 8px; }
+  p { color: var(--dim); margin-bottom: 12px; max-width: 680px; }
+  p strong, li strong { color: var(--fg); }
+  ul { margin: 0 0 14px 20px; color: var(--dim); }
+  li { margin-bottom: 6px; }
+  code {
+    font-family: var(--mono); font-size: 12.5px;
+    background: rgba(22, 26, 44, 0.06); border: 1px solid rgba(22, 26, 44, 0.08);
+    border-radius: 5px; padding: 1.5px 6px; color: var(--fg);
+  }
+  pre {
+    background: #0c0e14; color: #eceef2;
+    border: 1px solid rgba(12, 14, 22, 0.55); border-radius: 12px;
+    padding: 16px 18px; overflow-x: auto;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.75;
+    margin: 0 0 16px;
+  }
+  pre .c { color: rgba(232,232,234,0.4); }
+  pre .b { color: #79b8ff; } pre .g { color: #7ee787; } pre .y { color: #e3b341; } pre .v { color: #d2a8ff; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-bottom: 18px; background: rgba(255,255,255,0.5); border-radius: 10px; overflow: hidden; }
+  th, td { text-align: left; padding: 9px 13px; border-bottom: 1px solid rgba(22, 26, 44, 0.08); vertical-align: top; }
+  th { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); font-weight: 400; }
+  tr:last-child td { border-bottom: none; }
+  td:first-child { white-space: nowrap; }
+  kbd {
+    font-family: var(--mono); font-size: 11.5px;
+    background: rgba(255,255,255,0.8); border: 1px solid var(--stroke);
+    border-radius: 5px; padding: 2px 7px; color: var(--fg);
+  }
+  .note {
+    border: 1px solid rgba(130, 80, 223, 0.3); background: rgba(130, 80, 223, 0.07);
+    border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; max-width: 680px;
+  }
+  .note p { margin: 0; }
+  hr { border: none; border-top: 1px solid rgba(22,26,44,0.08); margin: 40px 0; }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <a class="brand" href="../">
+    <span class="tile"><svg viewBox="0 0 148 148"><path d="M56 48 L98 74 L56 100" stroke="#f2f3f7" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    prism
+  </a>
+  <span class="crumb">/ docs</span>
+  <div class="links">
+    <a href="../">Home</a>
+    <a href="https://github.com/comacoded/prism-terminal">GitHub</a>
+    <a href="https://github.com/comacoded/prism-terminal/releases/latest">Download</a>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="side" id="side">
+    <div class="grp">Start</div>
+    <a href="#install">Install</a>
+    <a href="#tour">Interface tour</a>
+    <div class="grp">Working in PRISM</div>
+    <a href="#tabs">Tabs &amp; groups</a>
+    <a href="#splits">Split panes</a>
+    <a href="#palette">Palette &amp; search</a>
+    <a href="#restore">Session restore</a>
+    <a href="#themes">Themes &amp; settings</a>
+    <a href="#keys">Keyboard reference</a>
+    <div class="grp">Agents</div>
+    <a href="#agents">Agent supervision</a>
+    <a href="#shell">Shell integration</a>
+    <a href="#api">Socket API &amp; CLI</a>
+    <div class="grp">Reference</div>
+    <a href="#protocols">Protocols</a>
+    <a href="#faq">Troubleshooting</a>
+    <a href="#platforms">Platforms &amp; roadmap</a>
+  </aside>
+
+  <main>
+    <section id="install">
+      <h1>PRISM Documentation</h1>
+      <p class="lede">PRISM is an agent-native terminal for macOS. This page covers everything it can do, because a lot of it is deliberately quiet until you need it.</p>
+      <h2>Install</h2>
+      <ul>
+        <li>Download <code>PRISM_0.1.0_aarch64.dmg</code> from <a href="https://github.com/comacoded/prism-terminal/releases/latest">Releases</a>, open it, and drag PRISM to Applications.</li>
+        <li>PRISM is currently ad-hoc signed. On first launch, if macOS blocks it, <strong>right-click the app and choose Open</strong> once; after that it opens normally.</li>
+        <li>Requirements: macOS 13+, Apple silicon. Intel and Linux are on the <a href="#platforms">roadmap</a>.</li>
+      </ul>
+      <p>On first run PRISM starts your login shell (zsh by default), injects its shell integration automatically (<a href="#shell">details</a>), and restores any previous session.</p>
+    </section>
+
+    <section id="tour">
+      <h2>Interface tour</h2>
+      <ul>
+        <li><strong>Tab strip</strong> (top): tabs with live status dots, group chips, and the + button. The two buttons on the right toggle the artifacts rail and settings.</li>
+        <li><strong>Status dots</strong>: violet means an agent is actively working in that tab, blue means an agent is running but idle (often waiting on you), gray is a plain shell, red means the shell exited.</li>
+        <li><strong>The glow</strong>: while an agent in the active tab is generating, the window wears an animated gradient border. It stops when the agent goes quiet.</li>
+        <li><strong>Footer</strong>: working directory, git branch, last command's exit status and duration, foreground process, and session uptime.</li>
+        <li><strong>Artifacts rail</strong> (right): appears when an agent writes files. See <a href="#agents">Agent supervision</a>.</li>
+      </ul>
+    </section>
+
+    <section id="tabs">
+      <h2>Tabs &amp; groups</h2>
+      <ul>
+        <li><kbd>⌘T</kbd> opens a tab in the current directory. <kbd>⌘W</kbd> closes the focused pane (or the tab if it's the last pane).</li>
+        <li>Switch with <kbd>⇧⌘{</kbd> / <kbd>⇧⌘}</kbd> or jump directly with <kbd>⌘1</kbd> through <kbd>⌘9</kbd>.</li>
+        <li><strong>Rename</strong> a tab by double-clicking it (or right-click, Rename). An empty name reverts to the shell-reported title. Names persist.</li>
+        <li><strong>Drag</strong> tabs to reorder them. A drop indicator shows the target slot.</li>
+      </ul>
+      <h3>Groups (Chrome-style)</h3>
+      <ul>
+        <li>Right-click a tab, then <strong>Add to new group</strong>, or drop a tab onto an existing group's chip, or drop it between two tabs of a group.</li>
+        <li>Creating a group opens the editor: name it, pick one of nine colors, or ungroup. Right-click a chip to reopen the editor.</li>
+        <li><strong>Click a chip to collapse</strong> the whole group into it; click again (or activate a member any other way) to expand. If a group holds every tab, collapsing opens a fresh tab first.</li>
+        <li>Member tabs wear the group color, stay contiguous, and groups persist across launches.</li>
+      </ul>
+    </section>
+
+    <section id="splits">
+      <h2>Split panes</h2>
+      <ul>
+        <li><kbd>⌘D</kbd> splits right, <kbd>⇧⌘D</kbd> splits down; up to four panes per tab, one direction per tab in v1.</li>
+        <li>Every pane is a full independent shell with its own agent detection, prompt marks, and artifacts.</li>
+        <li><strong>Click a pane to focus it</strong>; the focused pane wears an accent border and drives the footer, artifacts rail, search, and prompt navigation. <kbd>⌘W</kbd> closes the focused pane.</li>
+        <li>The tab's dot and the window glow aggregate across panes: if any pane's agent is working, the tab is working.</li>
+      </ul>
+    </section>
+
+    <section id="palette">
+      <h2>Palette &amp; search</h2>
+      <ul>
+        <li><kbd>⌘P</kbd> opens the command palette: every action plus a "Go to" entry for each open tab. Type to filter, arrows to move, Enter to run.</li>
+        <li><kbd>⌘F</kbd> searches scrollback with live highlight-as-you-type, a match counter, and scrollbar markers. Enter / Shift+Enter step through matches.</li>
+        <li><kbd>⌘↑</kbd> / <kbd>⌘↓</kbd> jump between shell prompts in scrollback (powered by <a href="#shell">shell integration</a>).</li>
+        <li>The palette also holds less-common actions: copy last command output, reveal the current folder in Finder, clear terminal.</li>
+      </ul>
+    </section>
+
+    <section id="restore">
+      <h2>Session restore</h2>
+      <p>Quitting PRISM loses nothing. On relaunch it restores your tabs, split layouts, groups, custom names, working directories, and <strong>the contents of every pane</strong> (up to 1000 lines of scrollback each), separated from the fresh prompt by a dim <code>── restored ──</code> divider.</p>
+      <p>Contents snapshot to disk every 15 seconds and on quit, so a hard kill can lose at most the last 15 seconds of scrollback. The session file lives in <code>~/Library/Application Support/io.nickcoma.prism.spike/session.json</code> and never leaves your Mac.</p>
+    </section>
+
+    <section id="themes">
+      <h2>Themes &amp; settings</h2>
+      <p>Open settings with <kbd>⌘,</kbd> or the gear button.</p>
+      <ul>
+        <li><strong>Themes</strong>: ten palettes chosen from live preview cards: PRISM, Dark, Light, Dracula, Cyber Wave, Nord, One Dark, Solarized Dark, Gruvbox Dark, Catppuccin Mocha. All render over the native glass. Picking <strong>Light</strong> restyles the entire chrome, not just terminal colors.</li>
+        <li><strong>Text size</strong>: slider from 10 to 20, or <kbd>⌘+</kbd> / <kbd>⌘−</kbd> anywhere, <kbd>⌘0</kbd> to reset.</li>
+        <li><strong>Glass tint</strong>: how dark (or light, in Light mode) the translucent background is over your wallpaper.</li>
+        <li><strong>Cursor</strong>: bar, block, or underline, with a blink toggle.</li>
+        <li><strong>Work glow</strong>: turn the agent glow border off if it's not your thing.</li>
+        <li><strong>Shortcuts</strong>: the full keyboard reference lives at the bottom of the settings panel.</li>
+      </ul>
+      <p>Everything persists across launches. Reset to defaults with one button.</p>
+    </section>
+
+    <section id="keys">
+      <h2>Keyboard reference</h2>
+      <table>
+        <tr><th>Keys</th><th>Action</th></tr>
+        <tr><td><kbd>⌘T</kbd></td><td>New tab (inherits current directory)</td></tr>
+        <tr><td><kbd>⌘W</kbd></td><td>Close focused pane, or the tab if it's the last pane</td></tr>
+        <tr><td><kbd>⌘D</kbd> / <kbd>⇧⌘D</kbd></td><td>Split right / split down</td></tr>
+        <tr><td><kbd>⇧⌘{</kbd> / <kbd>⇧⌘}</kbd></td><td>Previous / next tab</td></tr>
+        <tr><td><kbd>⌘1</kbd>…<kbd>⌘9</kbd></td><td>Jump to tab by position</td></tr>
+        <tr><td><kbd>⌘E</kbd></td><td>Mission control</td></tr>
+        <tr><td><kbd>⌘F</kbd></td><td>Find in scrollback</td></tr>
+        <tr><td><kbd>⌘P</kbd></td><td>Command palette</td></tr>
+        <tr><td><kbd>⌘K</kbd></td><td>Clear terminal</td></tr>
+        <tr><td><kbd>⌘↑</kbd> / <kbd>⌘↓</kbd></td><td>Previous / next prompt</td></tr>
+        <tr><td><kbd>⇧⌘A</kbd></td><td>Toggle artifacts rail</td></tr>
+        <tr><td><kbd>⌘,</kbd></td><td>Settings</td></tr>
+        <tr><td><kbd>⌘+</kbd> / <kbd>⌘−</kbd> / <kbd>⌘0</kbd></td><td>Text size up / down / reset</td></tr>
+        <tr><td><kbd>⌃`</kbd></td><td>Summon or dismiss PRISM from anywhere (global)</td></tr>
+        <tr><td><kbd>⌥ scroll</kbd></td><td>Fast scroll (20x)</td></tr>
+        <tr><td>double-click tab</td><td>Rename tab</td></tr>
+        <tr><td>right-click tab / chip</td><td>Group menu / group editor</td></tr>
+        <tr><td>click chip</td><td>Collapse or expand group</td></tr>
+        <tr><td>drag tab</td><td>Reorder; drop into a group to join it</td></tr>
+        <tr><td>drop a file on the window</td><td>Paste its shell-escaped path at the cursor</td></tr>
+      </table>
+    </section>
+
+    <hr />
+
+    <section id="agents">
+      <h2>Agent supervision</h2>
+      <p>PRISM watches the process tree and recognizes CLI agents (Claude Code, Codex) as the foreground process of any pane. Everything below happens automatically; there is nothing to configure.</p>
+      <h3>States and the glow</h3>
+      <ul>
+        <li>While an agent is <strong>actively generating</strong>, its tab dot turns violet and the window wears the animated gradient border. Detection reads the live screen for the agent's status line, so the glow holds steadily for the whole turn.</li>
+        <li>When the agent is running but idle, the dot turns blue: usually it's waiting on you.</li>
+      </ul>
+      <h3>Artifacts rail</h3>
+      <ul>
+        <li>While an agent is active, PRISM watches the session's working directory. Every file the agent creates or edits appears in the rail, newest first, with the working folder shown in the header.</li>
+        <li>The rail <strong>opens itself</strong> when files start landing in the active tab, follows you between tabs, and stays closed for a session once you dismiss it. Files landing in a background tab pulse the rail button instead.</li>
+        <li>Click any entry to reveal the file in Finder.</li>
+      </ul>
+      <h3>Mission control</h3>
+      <p><kbd>⌘E</kbd> shows every tab as a live card: state and time in state, working directory, branch, group, pane count, and the last files touched. Click a card to jump in.</p>
+      <h3>Notifications</h3>
+      <ul>
+        <li>Commands that run longer than 15 seconds notify you when they finish, if you're in another tab or app.</li>
+        <li>Programs can send notifications (OSC 9 / OSC 777) and taskbar progress (OSC 9;4), which renders as a hairline progress bar on the tab.</li>
+      </ul>
+    </section>
+
+    <section id="shell">
+      <h2>Shell integration</h2>
+      <p>PRISM injects zsh integration automatically via <code>ZDOTDIR</code>: it sources your real config untouched, then adds hooks. No dotfile edits, and nested shells or other terminals are unaffected.</p>
+      <h3>What it provides</h3>
+      <table>
+        <tr><th>Emits</th><th>Powers</th></tr>
+        <tr><td><code>OSC 133</code> prompt marks</td><td>Prompt jumping (<kbd>⌘↑</kbd>/<kbd>⌘↓</kbd>), per-command duration and exit status in the footer, long-command notifications, copy-last-output</td></tr>
+        <tr><td><code>OSC 7</code> cwd reports</td><td>Instant footer directory, session restore, new-tab inheritance; works over ssh</td></tr>
+        <tr><td><code>prism</code> function</td><td>The <a href="#api">CLI</a> for the socket API</td></tr>
+        <tr><td><code>zle_highlight</code> paste fix</td><td>Pasted text renders as plain text instead of reverse video (respects your own override)</td></tr>
+      </table>
+      <h3>Environment</h3>
+      <p>Every PRISM shell gets <code>TERM=xterm-256color</code>, <code>COLORTERM=truecolor</code>, <code>TERM_PROGRAM=PRISM</code>, <code>TERM_PROGRAM_VERSION</code>, and <code>PRISM_SOCKET</code>.</p>
+      <div class="note"><p><strong>bash or fish?</strong> Everything works, but prompt marks, command telemetry, and the <code>prism</code> function are zsh-only today. The footer falls back to slower cwd polling.</p></div>
+    </section>
+
+    <section id="api">
+      <h2>Socket API &amp; CLI</h2>
+      <p>PRISM listens on a Unix socket (path in <code>$PRISM_SOCKET</code>, user-only permissions, local machine only). Protocol: one JSON request per line, one JSON response per line. The <code>prism</code> command wraps it in every shell.</p>
+      <pre><span class="c">~/dev/prism</span> <span class="b">❯</span> prism list
+<span class="c">{"tabs":[{"index":0,"title":"claude","active":true,"group":"agents",
+  "panes":[{"id":1,"cwd":"/Users/you/dev/prism","focused":true,
+            "agent":true,"working":true,"exited":false}]}]}</span>
+
+<span class="c">~/dev/prism</span> <span class="b">❯</span> prism split row
+<span class="c">{"pane":4}</span>
+<span class="c">~/dev/prism</span> <span class="b">❯</span> prism send 4 <span class="y">"npm test"</span>
+<span class="c">~/dev/prism</span> <span class="b">❯</span> prism read 4 20
+<span class="g">  ✓ 42 passing</span> <span class="c">(1.2s)</span></pre>
+      <table>
+        <tr><th>Command</th><th>JSON</th><th>Does</th></tr>
+        <tr><td><code>prism list</code></td><td><code>{"cmd":"list"}</code></td><td>Every tab and pane with cwd, focus, and live agent state</td></tr>
+        <tr><td><code>prism new-tab [dir]</code></td><td><code>{"cmd":"new-tab","cwd":"…"}</code></td><td>Open a tab; returns the new pane id</td></tr>
+        <tr><td><code>prism split [row|column]</code></td><td><code>{"cmd":"split","dir":"row"}</code></td><td>Split the active tab; returns the new pane id</td></tr>
+        <tr><td><code>prism send &lt;pane&gt; &lt;text&gt;</code></td><td><code>{"cmd":"send","id":4,"data":"…\n"}</code></td><td>Type into any pane (newline appended by the CLI)</td></tr>
+        <tr><td><code>prism read &lt;pane&gt; [lines]</code></td><td><code>{"cmd":"read","id":4,"lines":50}</code></td><td>Read the last lines of a pane's screen</td></tr>
+        <tr><td><code>prism activate &lt;pane&gt;</code></td><td><code>{"cmd":"activate","id":4}</code></td><td>Focus that pane's tab and pane</td></tr>
+        <tr><td><code>prism notify &lt;text&gt;</code></td><td><code>{"cmd":"notify","title":"…","body":"…"}</code></td><td>Post a macOS notification</td></tr>
+      </table>
+      <p>Raw access without the CLI: <code>echo '{"cmd":"list"}' | nc -U "$PRISM_SOCKET"</code>. Agents running inside PRISM can use this to open panes beside themselves, run commands, and read the results.</p>
+    </section>
+
+    <hr />
+
+    <section id="protocols">
+      <h2>Protocols</h2>
+      <p>Core emulation is xterm.js (the engine inside VS Code's terminal): the xterm-compatible control-sequence surface, alternate screen, truecolor, all common mouse modes, and bracketed paste. On top of that:</p>
+      <table>
+        <tr><th>Protocol</th><th>Status</th></tr>
+        <tr><td>OSC 8 hyperlinks</td><td>Supported</td></tr>
+        <tr><td>OSC 52 clipboard (remote/tmux copy)</td><td>Supported</td></tr>
+        <tr><td>Sixel + iTerm inline images</td><td>Supported</td></tr>
+        <tr><td>Unicode grapheme clustering</td><td>Supported</td></tr>
+        <tr><td>OSC 7 cwd reporting</td><td>Supported</td></tr>
+        <tr><td>OSC 133 semantic prompts</td><td>Supported + auto-injected</td></tr>
+        <tr><td>OSC 9 / 777 notifications, OSC 9;4 progress</td><td>Supported</td></tr>
+        <tr><td>Kitty graphics / keyboard protocols</td><td>Not supported (xterm.js ceiling)</td></tr>
+        <tr><td>Ligatures</td><td>Not supported with the GPU renderer</td></tr>
+      </table>
+    </section>
+
+    <section id="faq">
+      <h2>Troubleshooting</h2>
+      <h3>macOS won't open the app</h3>
+      <p>PRISM is ad-hoc signed for now. Right-click the app in Applications and choose <strong>Open</strong> once.</p>
+      <h3>The glow never appears</h3>
+      <p>The glow tracks Claude Code and Codex as the foreground process of a pane. Check the Work glow toggle in settings, and note it only shows for the <em>active</em> tab; background tabs show the violet dot instead.</p>
+      <h3>Prompt jumping / duration chips don't work</h3>
+      <p>Those need the zsh integration, which applies to shells started inside PRISM. If you exec'd into bash or fish, they're off (see <a href="#shell">Shell integration</a>).</p>
+      <h3>The global hotkey does nothing</h3>
+      <p><kbd>⌃`</kbd> is registered system-wide at launch; another app may own it already.</p>
+      <h3>Where is my data?</h3>
+      <p>Everything is local: session snapshots and the socket live in <code>~/Library/Application Support/io.nickcoma.prism.spike/</code>. PRISM makes no network requests, has no telemetry, and no accounts.</p>
+    </section>
+
+    <section id="platforms">
+      <h2>Platforms &amp; roadmap</h2>
+      <table>
+        <tr><th>Platform</th><th>Status</th><th>Goal</th></tr>
+        <tr><td>macOS, Apple silicon</td><td>Shipping</td><td>—</td></tr>
+        <tr><td>macOS, Intel</td><td>Planned</td><td>v0.2 as a universal binary, targeted end of July 2026</td></tr>
+        <tr><td>Linux</td><td>Planned</td><td>v0.3 beta (AppImage + .deb), targeted end of September 2026; agent layer fully intact, glass degrades gracefully by compositor</td></tr>
+        <tr><td>Windows</td><td>Not planned</td><td>—</td></tr>
+      </table>
+      <p>The broader feature roadmap (needs-you notifications, semantic history, triggers, tmux control mode, and more) lives in the repo under <code>docs/PRISM-Feature-Roadmap.docx</code>.</p>
+    </section>
+  </main>
+</div>
+
+<script>
+  // sidebar scrollspy
+  const links = [...document.querySelectorAll('.side a')];
+  const secs = links.map((a) => document.querySelector(a.hash));
+  const spy = new IntersectionObserver((es) => {
+    for (const en of es) {
+      if (!en.isIntersecting) continue;
+      links.forEach((a) => a.classList.toggle('on', a.hash === '#' + en.target.id));
+    }
+  }, { rootMargin: '-15% 0px -70% 0px' });
+  secs.forEach((s) => s && spy.observe(s));
+</script>
+</body>
+</html>
