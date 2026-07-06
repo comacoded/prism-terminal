@@ -36,6 +36,8 @@ struct AppState {
     sessions: Mutex<HashMap<u32, Session>>,
     next_id: Mutex<u32>,
     active: Mutex<Option<u32>>,
+    api_pending: Mutex<HashMap<u64, std::sync::mpsc::Sender<String>>>,
+    api_counter: Mutex<u64>,
 }
 
 #[derive(Clone, Serialize)]
@@ -69,6 +71,11 @@ struct ArtifactRecord {
 struct ArtifactsPayload {
     id: u32,
     list: Vec<ArtifactRecord>,
+}
+#[derive(Clone, Serialize)]
+struct ApiRequest {
+    id: u64,
+    req: String,
 }
 
 fn now_ms() -> u64 {
@@ -137,11 +144,103 @@ __prism_osc7
 # Pasted text renders as plain text (zsh's default standout/reverse highlight
 # can be unreadable on a translucent background). Respect a user override.
 (( ${+zle_highlight} )) || zle_highlight=(region:standout special:standout suffix:bold isearch:underline paste:none)
+
+# `prism` CLI: drive PRISM over its socket API from any pane (agents included).
+prism() {
+  if [[ -z "$PRISM_SOCKET" ]]; then echo "prism: not inside PRISM" >&2; return 1; fi
+  local sub="$1"; (( $# > 0 )) && shift
+  local json
+  case "$sub" in
+    list)     json='{"cmd":"list"}' ;;
+    new-tab)  json="{\"cmd\":\"new-tab\",\"cwd\":\"${1:-$PWD}\"}" ;;
+    split)    json="{\"cmd\":\"split\",\"dir\":\"${1:-row}\"}" ;;
+    read)     json="{\"cmd\":\"read\",\"id\":${1:?pane id},\"lines\":${2:-50}}" ;;
+    activate) json="{\"cmd\":\"activate\",\"id\":${1:?pane id}}" ;;
+    send)     local _pid="${1:?pane id}"; shift
+              json="{\"cmd\":\"send\",\"id\":${_pid},\"data\":$(printf '%s' "$*" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()+"\n"))')}" ;;
+    notify)   json="{\"cmd\":\"notify\",\"title\":\"PRISM\",\"body\":$(printf '%s' "$*" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}" ;;
+    ''|help)  echo "usage: prism list|new-tab [dir]|split [row|column]|read <pane> [lines]|send <pane> <text>|activate <pane>|notify <text>|'<raw json>'" >&2; return 1 ;;
+    *)        json="$sub" ;;
+  esac
+  printf '%s\n' "$json" | nc -U "$PRISM_SOCKET"
+}
 "#;
 const ZLOGIN: &str = r#"if [[ -f "${PRISM_USER_ZDOTDIR:-$HOME}/.zlogin" ]]; then
   . "${PRISM_USER_ZDOTDIR:-$HOME}/.zlogin"
 fi
 "#;
+
+fn app_data_dir(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    let dir = app.path().app_data_dir().ok()?;
+    std::fs::create_dir_all(&dir).ok()?;
+    Some(dir)
+}
+fn api_socket_path(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    Some(app_data_dir(app)?.join("prism.sock"))
+}
+
+/// Full session snapshot (tabs, panes, serialized scrollback) lives on disk;
+/// it can reach megabytes, which is too big for localStorage.
+#[tauri::command]
+fn session_save(app: tauri::AppHandle, data: String) -> Result<(), String> {
+    let dir = app_data_dir(&app).ok_or("no data dir")?;
+    std::fs::write(dir.join("session.json"), data).map_err(|e| e.to_string())
+}
+#[tauri::command]
+fn session_load(app: tauri::AppHandle) -> Option<String> {
+    std::fs::read_to_string(app_data_dir(&app)?.join("session.json")).ok()
+}
+
+/// Socket API: newline-delimited JSON over a Unix socket. Requests are
+/// forwarded to the webview (which owns tabs, panes, and screen contents)
+/// and the response is routed back to the caller.
+#[tauri::command]
+fn api_respond(state: tauri::State<'_, Arc<AppState>>, id: u64, data: String) {
+    if let Some(tx) = state.api_pending.lock().unwrap().remove(&id) {
+        let _ = tx.send(data);
+    }
+}
+fn spawn_api_loop(app: tauri::AppHandle, state: Arc<AppState>) {
+    let Some(path) = api_socket_path(&app) else { return };
+    let _ = std::fs::remove_file(&path);
+    let listener = match std::os::unix::net::UnixListener::bind(&path) {
+        Ok(l) => l,
+        Err(_) => return,
+    };
+    thread::spawn(move || {
+        for stream in listener.incoming() {
+            let Ok(stream) = stream else { continue };
+            let app = app.clone();
+            let state = state.clone();
+            thread::spawn(move || {
+                use std::io::{BufRead, BufReader};
+                let Ok(read_half) = stream.try_clone() else { return };
+                let mut writer = stream;
+                for line in BufReader::new(read_half).lines() {
+                    let Ok(line) = line else { break };
+                    if line.trim().is_empty() {
+                        continue;
+                    }
+                    let (tx, rx) = std::sync::mpsc::channel();
+                    let id = {
+                        let mut c = state.api_counter.lock().unwrap();
+                        *c += 1;
+                        *c
+                    };
+                    state.api_pending.lock().unwrap().insert(id, tx);
+                    let _ = app.emit("api://request", ApiRequest { id, req: line });
+                    let resp = rx
+                        .recv_timeout(Duration::from_secs(5))
+                        .unwrap_or_else(|_| "{\"error\":\"timeout\"}".into());
+                    state.api_pending.lock().unwrap().remove(&id);
+                    if writeln!(writer, "{}", resp).is_err() {
+                        break;
+                    }
+                }
+            });
+        }
+    });
+}
 
 /// Write the ZDOTDIR stubs once per launch; returns the dir to point zsh at.
 fn zsh_integration_dir(app: &tauri::AppHandle) -> Option<String> {
@@ -194,6 +293,9 @@ fn pty_spawn(
     cmd.env("COLORTERM", "truecolor");
     cmd.env("TERM_PROGRAM", "PRISM");
     cmd.env("TERM_PROGRAM_VERSION", env!("CARGO_PKG_VERSION"));
+    if let Some(sock) = api_socket_path(&app) {
+        cmd.env("PRISM_SOCKET", sock);
+    }
     if is_zsh {
         if let Some(dir) = zsh_integration_dir(&app) {
             let orig = std::env::var("ZDOTDIR").unwrap_or_default();
@@ -551,7 +653,10 @@ fn main() {
             set_active,
             artifact_reveal,
             notify_user,
-            open_url
+            open_url,
+            session_save,
+            session_load,
+            api_respond
         ])
         .setup(move |app| {
             let window = app.get_webview_window("main").unwrap();
@@ -567,6 +672,7 @@ fn main() {
             spawn_proc_loop(app.handle().clone(), state.clone());
             spawn_footer_loop(app.handle().clone(), state.clone());
             spawn_artifacts_loop(app.handle().clone(), state.clone());
+            spawn_api_loop(app.handle().clone(), state.clone());
             Ok(())
         })
         .run(tauri::generate_context!())

@@ -56,8 +56,17 @@ rendering, portable-pty, zsh shell integration injected via ZDOTDIR.
   persist across launches.
 - **Iconography**: Phosphor icons throughout the chrome (single filled
   paths, crisp at any size).
-- **Session restore.** Tab working directories and the active tab persist
-  across launches (up to 8 tabs).
+- **Session restore, contents included.** Relaunching PRISM brings back your
+  tabs, split layouts, working directories, groups, names, and each pane's
+  terminal contents (up to 1000 lines of scrollback per pane, snapshotted
+  every 15 seconds to disk), with a "── restored ──" divider before the
+  fresh prompt.
+- **Socket API + `prism` CLI.** Every shell gets `$PRISM_SOCKET` (a Unix
+  socket) and a `prism` command: `prism list` (tabs, panes, agent states),
+  `prism new-tab [dir]`, `prism split [row|column]`, `prism read <pane>
+  [lines]`, `prism send <pane> <text>`, `prism activate <pane>`,
+  `prism notify <text>`, or raw JSON. Agents running inside PRISM can open
+  panes, read screens, and drive the terminal programmatically.
 - **Scrollback search** (Cmd+F). Incremental highlight-as-you-type, match
   counter, Enter / Shift+Enter to step, scrollbar match markers,
   10,000 lines of scrollback.

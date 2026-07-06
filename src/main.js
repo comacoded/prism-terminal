@@ -542,7 +542,7 @@ function togglePanel() {
 }
 
 // --- Panes (splits) -----------------------------------------------------------
-async function createPane(tab, startCwd) {
+async function createPane(tab, startCwd, content) {
   const el = document.createElement('div');
   el.className = 'split-cell';
   const termEl = document.createElement('div');
@@ -561,8 +561,10 @@ async function createPane(tab, startCwd) {
   });
   const fit = new FitAddon.FitAddon();
   const search = new SearchAddon.SearchAddon();
+  const ser = new SerializeAddon.SerializeAddon();
   term.loadAddon(fit);
   term.loadAddon(search);
+  term.loadAddon(ser);
   term.loadAddon(new ClipboardAddon.ClipboardAddon()); // OSC 52: remote/tmux copy
   term.loadAddon(new ImageAddon.ImageAddon()); // sixel + iTerm inline images
   term.loadAddon(new UnicodeGraphemesAddon.UnicodeGraphemesAddon());
@@ -575,6 +577,10 @@ async function createPane(tab, startCwd) {
     term.loadAddon(webgl);
   } catch { /* DOM renderer fallback */ }
   fit.fit();
+  if (content) {
+    term.write(content);
+    term.write('\r\n\x1b[0m\x1b[2m── restored ──\x1b[0m\r\n');
+  }
 
   let id;
   try {
@@ -587,10 +593,10 @@ async function createPane(tab, startCwd) {
   }
 
   const pane = {
-    id, term, fit, search, el,
+    id, term, fit, search, ser, el,
     exited: false, fgProcess: '', agentActive: false,
     cwd: startCwd || '', branch: '', burstActive: false, workSeen: 0,
-    marks: [], cmdStart: null, lastCmd: null, artifacts: [],
+    marks: [], cmdStart: null, lastCmd: null, artifacts: [], snapshot: '',
   };
   hookPromptMarks(pane);
   hookAppProtocols(tab, pane);
@@ -982,7 +988,7 @@ window.addEventListener('mousedown', (e) => {
 }, true);
 
 // --- Tabs -------------------------------------------------------------------
-async function createTab(startCwd) {
+async function createTab(startCwd, content) {
   tabCounter += 1;
   const label = `Session ${tabCounter}`;
 
@@ -1006,7 +1012,7 @@ async function createTab(startCwd) {
     autoTitle: label, customTitle: null, renaming: false,
   };
 
-  const pane = await createPane(tab, startCwd ?? activePane()?.cwd ?? null);
+  const pane = await createPane(tab, startCwd ?? activePane()?.cwd ?? null, content);
   if (!pane) { paneEl.remove(); return; }
   tab.panes.push(pane);
   tab.active = pane;
@@ -1086,30 +1092,77 @@ function closeTab(tab) {
   removeTab(tab);
 }
 
-// --- Session restore ----------------------------------------------------------
-function persistSession() {
-  try {
-    localStorage.setItem('prism.session', JSON.stringify({
-      tabs: tabs.map((t) => ({ cwd: t.active?.cwd || '', g: t.groupId, name: t.customTitle })),
-      groups: [...groups.values()].map(({ id, name, color, collapsed }) => ({ id, name, color, collapsed })),
-      active: Math.max(0, tabs.indexOf(activeTab)),
-    }));
-  } catch { /* storage unavailable; live session still works */ }
+// --- Session restore (tabs, splits, and serialized scrollback, on disk) --------
+const SNAPSHOT_LINES = 1000; // scrollback lines preserved per pane
+function snapshotPanes() {
+  forEachPane((p) => {
+    try { p.snapshot = p.ser.serialize({ scrollback: SNAPSHOT_LINES }); } catch {}
+  });
 }
+function buildSession() {
+  return JSON.stringify({
+    tabs: tabs.map((t) => ({
+      g: t.groupId, name: t.customTitle, splitDir: t.splitDir,
+      panes: t.panes.map((p) => ({ cwd: p.cwd || '', content: p.snapshot || '' })),
+    })),
+    groups: [...groups.values()].map(({ id, name, color, collapsed }) => ({ id, name, color, collapsed })),
+    active: Math.max(0, tabs.indexOf(activeTab)),
+  });
+}
+let persistTimer = null;
+function persistSession() {
+  if (!ready) return;
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    invoke('session_save', { data: buildSession() }).catch(() => {});
+  }, 400);
+}
+// Content snapshots run on a timer (serializing every pane on each keystroke
+// would be wasteful); on quit, at most this interval of scrollback is lost.
+setInterval(() => {
+  if (!ready) return;
+  snapshotPanes();
+  persistSession();
+}, 15000);
+window.addEventListener('beforeunload', () => {
+  snapshotPanes();
+  invoke('session_save', { data: buildSession() }).catch(() => {});
+});
 async function startTabs() {
   let saved = null;
-  try { saved = JSON.parse(localStorage.getItem('prism.session')); } catch {}
-  // legacy format stored plain cwd strings
+  try {
+    const raw = await invoke('session_load');
+    if (raw) saved = JSON.parse(raw);
+  } catch {}
+  if (!saved) {
+    // migrate from the old localStorage-only format
+    try { saved = JSON.parse(localStorage.getItem('prism.session')); } catch {}
+  }
   const entries = (saved?.tabs || (saved?.cwds || []).map((cwd) => ({ cwd, g: null })))
-    .filter((e) => e.cwd).slice(0, MAX_RESTORE_TABS);
+    .map((e) => ({ ...e, panes: e.panes?.length ? e.panes : [{ cwd: e.cwd || '', content: '' }] }))
+    .filter((e) => e.panes.some((p) => p.cwd))
+    .slice(0, MAX_RESTORE_TABS);
   if (!entries.length) { await createTab(); return; }
   for (const g of saved?.groups || []) {
     groups.set(g.id, { id: g.id, name: g.name || '', color: g.color, collapsed: !!g.collapsed, chipEl: null });
     groupCounter = Math.max(groupCounter, g.id);
   }
   for (const e of entries) {
-    await createTab(e.cwd);
+    const panes = e.panes.slice(0, MAX_PANES);
+    await createTab(panes[0].cwd, panes[0].content || undefined);
     const t = tabs[tabs.length - 1];
+    if (!t) continue;
+    for (const pe of panes.slice(1)) {
+      const p = await createPane(t, pe.cwd || null, pe.content || undefined);
+      if (p) t.panes.push(p);
+    }
+    if (t.panes.length > 1) {
+      t.splitDir = e.splitDir === 'column' ? 'column' : 'row';
+      t.paneEl.classList.add('multi');
+      t.paneEl.classList.toggle('split-column', t.splitDir === 'column');
+      setActivePane(t, t.panes[0]);
+      fitTab(t);
+    }
     if (e.g != null && groups.has(e.g)) t.groupId = e.g;
     if (e.name) { t.customTitle = e.name; t.titleEl.textContent = e.name; }
   }
@@ -1184,6 +1237,69 @@ listen('artifacts://update', (e) => {
     void toggleArtBtn.offsetWidth;
     toggleArtBtn.classList.add('pulse');
   }
+});
+
+// --- Socket API (Unix socket -> Rust -> here; `prism` CLI in every shell) ------
+function readPaneText(p, lines) {
+  const buf = p.term.buffer.active;
+  const end = buf.baseY + buf.cursorY + 1; // content ends at the cursor, not the blank rows below
+  const start = Math.max(0, end - Math.max(1, Math.min(lines, 2000)));
+  const out = [];
+  for (let i = start; i < end; i++) out.push(buf.getLine(i)?.translateToString(true) ?? '');
+  return out.join('\n').replace(/\n+$/, '');
+}
+async function handleApi(req) {
+  switch (req.cmd) {
+    case 'list':
+      return {
+        tabs: tabs.map((t, i) => ({
+          index: i,
+          title: t.titleEl.textContent,
+          active: t === activeTab,
+          group: tabGroup(t)?.name ?? null,
+          panes: t.panes.map((p) => ({
+            id: p.id, cwd: p.cwd, focused: p === t.active,
+            agent: p.agentActive, working: p.burstActive, exited: p.exited,
+          })),
+        })),
+      };
+    case 'new-tab':
+      await createTab(req.cwd || null);
+      return { pane: activePane()?.id ?? null };
+    case 'split':
+      await splitPane(req.dir === 'column' ? 'column' : 'row');
+      return { pane: activePane()?.id ?? null };
+    case 'send': {
+      const hit = findPane(req.id);
+      if (!hit || hit.p.exited) return { error: 'no such pane' };
+      await invoke('pty_write', { id: req.id, data: String(req.data ?? '') });
+      return { ok: true };
+    }
+    case 'read': {
+      const hit = findPane(req.id ?? activePane()?.id);
+      if (!hit) return { error: 'no such pane' };
+      return { pane: hit.p.id, text: readPaneText(hit.p, req.lines || 50) };
+    }
+    case 'activate': {
+      const hit = findPane(req.id);
+      if (!hit) return { error: 'no such pane' };
+      activateTab(hit.t);
+      setActivePane(hit.t, hit.p);
+      return { ok: true };
+    }
+    case 'notify':
+      invoke('notify_user', { title: String(req.title || 'PRISM'), body: String(req.body || '') });
+      return { ok: true };
+    default:
+      return { error: 'unknown cmd', cmds: ['list', 'new-tab', 'split', 'send', 'read', 'activate', 'notify'] };
+  }
+}
+listen('api://request', async (e) => {
+  const { id, req } = e.payload;
+  let res;
+  try { res = await handleApi(JSON.parse(req)); }
+  catch (err) { res = { error: String(err?.message || err) }; }
+  invoke('api_respond', { id, data: JSON.stringify(res ?? { ok: true }) });
 });
 
 // --- Scrollback search (Cmd+F) ------------------------------------------------
