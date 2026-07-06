@@ -6,11 +6,14 @@
 <title>PRISM: the terminal that knows your agent is working</title>
 <meta name="description" content="A glass terminal for macOS built for the age of AI coding agents. See when Claude is working, what files it touched, and drive every pane from a socket API." />
 <meta property="og:title" content="PRISM" />
-<meta property="og:description" content="The terminal that knows your agent is working." />
-<meta property="og:image" content="assets/hero.png" />
+<meta property="og:description" content="An agent-native terminal for macOS." />
+<meta property="og:url" content="https://prism-landing-production.up.railway.app/" />
+<meta property="og:image" content="https://prism-landing-production.up.railway.app/assets/hero.png" />
+<meta name="twitter:card" content="summary_large_image" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 148 148'%3E%3Crect x='6' y='6' width='136' height='136' rx='38' fill='%230b0d12'/%3E%3Cpath d='M52 42 L103 74 L52 106' stroke='%23f2f3f7' stroke-width='10.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
 <style>
   @font-face { font-family: 'Raleway'; font-weight: 100; src: url('assets/fonts/Raleway-Thin.woff2') format('woff2'); }
+  @font-face { font-family: 'Raleway'; font-weight: 400; src: url('assets/fonts/Raleway-Regular.woff2') format('woff2'); }
   @font-face { font-family: 'JetBrains Mono'; font-weight: 400; src: url('assets/fonts/JetBrainsMono-Regular.woff2') format('woff2'); }
   @font-face { font-family: 'JetBrains Mono'; font-weight: 700; src: url('assets/fonts/JetBrainsMono-Bold.woff2') format('woff2'); }
 
@@ -59,7 +62,7 @@
     border-bottom: 1px solid rgba(22, 26, 44, 0.08);
   }
   .nav-in { display: flex; align-items: center; gap: 28px; height: 60px; }
-  .brand { display: flex; align-items: center; gap: 11px; font-family: 'Raleway'; font-weight: 100; font-size: 19px; letter-spacing: 0.35em; }
+  .brand { display: flex; align-items: center; gap: 11px; font-family: 'Raleway'; font-weight: 400; font-size: 18px; letter-spacing: 0.32em; color: var(--fg); }
   .nav-links { display: flex; gap: 24px; margin-left: auto; font-size: 13.5px; color: var(--dim); }
   .nav-links a { transition: color 140ms; }
   .nav-links a:hover { color: var(--fg); }
@@ -92,7 +95,7 @@
   h1 {
     margin: 0 0 18px;
     font-family: 'Raleway'; font-weight: 100;
-    font-size: clamp(34px, 4vw, 54px); line-height: 1.14; letter-spacing: 0.01em;
+    font-size: clamp(28px, 3.3vw, 45px); line-height: 1.16; letter-spacing: 0.01em;
   }
   h1 .hl {
     background: linear-gradient(100deg, #8250df, #2f6fed 40%, #d9418f 70%, #e8730c);
@@ -194,7 +197,7 @@
   .marquee span { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--dim); border: 1px solid var(--stroke); border-radius: 999px; padding: 6px 14px; white-space: nowrap; background: rgba(255,255,255,0.5); }
 
   /* ------ sections ------ */
-  section { padding: 100px 0; }
+  section { padding: 100px 0; scroll-margin-top: 64px; }
   .kicker { font-family: var(--mono); font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--violet); margin-bottom: 14px; }
   h2 { font-size: clamp(26px, 4vw, 40px); line-height: 1.16; letter-spacing: -0.02em; font-weight: 700; }
   .lede { color: var(--dim); margin-top: 14px; font-size: 16.5px; max-width: 560px; }
@@ -337,10 +340,9 @@
 
 <div class="marquee rv">
   <div class="marquee-in" id="mq">
-    <span>xterm-grade emulation</span><span>WebGL renderer</span><span>OSC 7 · 8 · 52 · 133</span>
-    <span>sixel + iTerm images</span><span>zsh integration, zero setup</span><span>tab groups</span>
-    <span>split panes</span><span>scrollback restore</span><span>socket API</span><span>ten themes</span>
-    <span>native glass</span><span>mission control</span>
+    <span>tabs</span><span>tab groups</span><span>split panes</span><span>mission control</span>
+    <span>agent glow</span><span>artifacts</span><span>session restore</span><span>socket API</span>
+    <span>themes</span><span>light mode</span><span>search</span><span>notifications</span>
   </div>
 </div>
 
