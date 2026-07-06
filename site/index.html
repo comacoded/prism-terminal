@@ -98,14 +98,7 @@
   .sub { max-width: 520px; color: var(--dim); font-size: 16.5px; }
   .cta-row { display: flex; gap: 14px; margin: 30px 0 12px; flex-wrap: wrap; }
   #download .cta-row { justify-content: center; }
-  .btn-halo { position: relative; display: inline-block; border-radius: 12px; }
-  .btn-halo::before { /* soft breathing glow hugging the button */
-    content: ''; position: absolute; inset: -5px; border-radius: 16px;
-    background: var(--grad); filter: blur(14px);
-    animation: haloPulse 3s ease-in-out infinite;
-  }
-  @keyframes haloPulse { 0%, 100% { opacity: 0.22; } 50% { opacity: 0.5; } }
-  .btn-glow { position: relative; display: block; border-radius: 12px; padding: 2px; overflow: hidden; transition: transform 160ms; }
+  .btn-glow { position: relative; display: inline-block; border-radius: 12px; padding: 2px; overflow: hidden; transition: transform 160ms; }
   .btn-glow::before { /* rotating gradient ring, clipped to the border gap */
     content: ''; position: absolute; left: 50%; top: 50%; width: 140%; aspect-ratio: 1;
     transform: translate(-50%, -50%); background: var(--grad);
@@ -119,14 +112,7 @@
   .req { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
 
   /* ------ live demo (hero, right column) ------ */
-  .hero-demo { perspective: 1500px; }
-  .demo-stage {
-    position: relative;
-    transform: rotateY(-10deg) rotateX(3deg);
-    transition: transform 800ms cubic-bezier(0.2, 0.7, 0.2, 1);
-  }
-  .hero-demo:hover .demo-stage { transform: rotateY(-3deg) rotateX(1deg); }
-  @media (max-width: 960px) { .demo-stage, .hero-demo:hover .demo-stage { transform: none; } }
+  .demo-stage { position: relative; }
   .demo-halo {
     position: absolute; inset: 8% 6% 0; z-index: 0;
     filter: blur(80px) saturate(1.15);
@@ -209,10 +195,9 @@
   @media (max-width: 900px) { .feature { grid-template-columns: 1fr !important; gap: 26px; } .feature.flip .copy { order: 0; } }
   .feature h2 { font-size: clamp(23px, 3vw, 31px); }
   .feature p { color: var(--dim); margin-top: 12px; font-size: 15.5px; }
-  /* bullets hang in the gutter so list text aligns flush with the paragraph */
-  .feature ul { margin: 16px 0 0; padding: 0; list-style: none; color: var(--dim); font-size: 14.5px; }
-  .feature li { padding: 5px 0; position: relative; }
-  .feature li::before { content: '❯'; position: absolute; left: -20px; top: 7px; color: var(--blue); font-family: var(--mono); font-size: 12px; }
+  .feature ul { margin: 18px 0 0; padding: 0; list-style: none; color: var(--dim); font-size: 14.5px; }
+  .feature li { padding: 5px 0 5px 24px; position: relative; }
+  .feature li::before { content: '❯'; position: absolute; left: 2px; top: 10px; line-height: 1; color: var(--blue); font-family: var(--mono); font-size: 11px; }
   .shot { border-radius: 14px; border: 1px solid rgba(255,255,255,0.13); overflow: hidden; }
 
 
@@ -292,7 +277,7 @@
       <h1>An <span class="hl">agent-native</span> terminal that doesn't look like shit.</h1>
       <p class="sub">Built to supervise Claude Code, Codex, and anything else that runs in a shell.</p>
       <div class="cta-row">
-        <span class="btn-halo"><a class="btn-glow" href="https://github.com/comacoded/prism-terminal/releases/latest"><span>⬇ Download for macOS</span></a></span>
+        <a class="btn-glow" href="https://github.com/comacoded/prism-terminal/releases/latest"><span>⬇ Download for macOS</span></a>
         <a class="btn-ghost" href="https://github.com/comacoded/prism-terminal">View on GitHub</a>
       </div>
       <p class="req">macOS 13+ · Apple silicon · free and open source</p>
@@ -445,7 +430,7 @@
     <h2>Bring your own agent.</h2>
     <p class="lede" style="margin: 14px auto 0;">Free and open source. One small DMG, no accounts, no bundled model, no telemetry. Your agents, supervised.</p>
     <div class="cta-row" style="margin-top: 30px;">
-      <span class="btn-halo"><a class="btn-glow" href="https://github.com/comacoded/prism-terminal/releases/latest"><span>⬇ Download PRISM for macOS</span></a></span>
+      <a class="btn-glow" href="https://github.com/comacoded/prism-terminal/releases/latest"><span>⬇ Download PRISM for macOS</span></a>
       <a class="btn-ghost" href="https://github.com/comacoded/prism-terminal/blob/main/FEATURES.md">Read the docs</a>
     </div>
     <p class="req">PRISM_0.1.0_aarch64.dmg · macOS 13+ · Apple silicon</p>
