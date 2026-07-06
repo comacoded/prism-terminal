@@ -83,16 +83,8 @@
   }
   .hero-grid { display: grid; grid-template-columns: 10fr 11fr; gap: 54px; align-items: center; }
   @media (max-width: 960px) { .hero-grid { grid-template-columns: 1fr; gap: 44px; } }
-  .eyebrow {
-    display: inline-flex; align-items: center; gap: 9px;
-    font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
-    color: var(--dim); border: 1px solid var(--stroke); border-radius: 999px; padding: 6px 15px;
-    background: rgba(255,255,255,0.03);
-  }
-  .eyebrow .pulse-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--violet); animation: pd 1.8s ease-in-out infinite; }
-  @keyframes pd { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
   h1 {
-    margin: 30px 0 18px;
+    margin: 0 0 18px;
     font-family: 'Raleway'; font-weight: 100;
     font-size: clamp(34px, 4vw, 54px); line-height: 1.14; letter-spacing: 0.01em;
   }
@@ -106,7 +98,12 @@
   .sub { max-width: 520px; color: var(--dim); font-size: 16.5px; }
   .cta-row { display: flex; gap: 14px; margin: 30px 0 12px; flex-wrap: wrap; }
   #download .cta-row { justify-content: center; }
-  .btn-glow { position: relative; border-radius: 12px; padding: 1.5px; background: var(--grad); animation: spin 5s linear infinite; transition: transform 160ms; }
+  .btn-glow { position: relative; border-radius: 12px; padding: 2px; background: var(--grad); animation: spin 3.5s linear infinite; transition: transform 160ms; }
+  .btn-glow::before { /* animated halo so the gradient reads as alive */
+    content: ''; position: absolute; inset: -5px; z-index: -1; border-radius: 16px;
+    background: var(--grad); filter: blur(16px); opacity: 0.45;
+    animation: spin 3.5s linear infinite;
+  }
   .btn-glow:hover { transform: translateY(-1px); }
   .btn-glow > span { display: flex; align-items: center; gap: 9px; background: #0c0e14; border-radius: 10.5px; padding: 13px 26px; font-size: 15px; font-weight: 600; transition: background 140ms; }
   .btn-glow:hover > span { background: #141827; }
@@ -115,7 +112,14 @@
   .req { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
 
   /* ------ live demo (hero, right column) ------ */
-  .demo-stage { position: relative; }
+  .hero-demo { perspective: 1500px; }
+  .demo-stage {
+    position: relative;
+    transform: rotateY(-10deg) rotateX(3deg);
+    transition: transform 800ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .hero-demo:hover .demo-stage { transform: rotateY(-3deg) rotateX(1deg); }
+  @media (max-width: 960px) { .demo-stage, .hero-demo:hover .demo-stage { transform: none; } }
   .demo-halo {
     position: absolute; inset: 8% 6% 0; z-index: 0; border-radius: 40px;
     background: var(--grad); filter: blur(80px) saturate(1.15);
@@ -199,9 +203,10 @@
   @media (max-width: 900px) { .feature { grid-template-columns: 1fr !important; gap: 26px; } .feature.flip .copy { order: 0; } }
   .feature h2 { font-size: clamp(23px, 3vw, 31px); }
   .feature p { color: var(--dim); margin-top: 12px; font-size: 15.5px; }
+  /* bullets hang in the gutter so list text aligns flush with the paragraph */
   .feature ul { margin: 16px 0 0; padding: 0; list-style: none; color: var(--dim); font-size: 14.5px; }
-  .feature li { padding: 5px 0 5px 24px; position: relative; }
-  .feature li::before { content: '❯'; position: absolute; left: 2px; color: var(--blue); font-family: var(--mono); font-size: 12px; }
+  .feature li { padding: 5px 0; position: relative; }
+  .feature li::before { content: '❯'; position: absolute; left: -20px; top: 7px; color: var(--blue); font-family: var(--mono); font-size: 12px; }
   .shot { border-radius: 14px; border: 1px solid rgba(255,255,255,0.13); overflow: hidden; }
 
 
@@ -278,9 +283,8 @@
 <header>
   <div class="wrap hero-grid">
     <div class="hero-copy">
-      <span class="eyebrow"><span class="pulse-dot"></span> agent-native terminal for macOS</span>
-      <h1>The terminal that knows your agent is <span class="hl">working</span>.</h1>
-      <p class="sub">Ghostty ignores your agent. Warp wants to replace it. PRISM supervises the agents you already trust and makes running a fleet of them feel like a flight deck.</p>
+      <h1>An <span class="hl">agent-native</span> terminal that doesn't look like shit.</h1>
+      <p class="sub">Built to supervise Claude Code, Codex, and anything else that runs in a shell.</p>
       <div class="cta-row">
         <a class="btn-glow" href="https://github.com/comacoded/prism-terminal/releases/latest"><span>⬇ Download for macOS</span></a>
         <a class="btn-ghost" href="https://github.com/comacoded/prism-terminal">View on GitHub</a>
@@ -317,10 +321,10 @@
     </div>
   </div>
   <div class="demo-steps">
-    <span class="demo-step" id="s1">1 · agent detected</span>
-    <span class="demo-step" id="s2">2 · glows while it works</span>
-    <span class="demo-step" id="s3">3 · every file tracked</span>
-    <span class="demo-step" id="s4">4 · back to calm</span>
+    <span class="demo-step" id="s1">1 · detected</span>
+    <span class="demo-step" id="s2">2 · glowing</span>
+    <span class="demo-step" id="s3">3 · tracked</span>
+    <span class="demo-step" id="s4">4 · calm</span>
   </div>
     </div>
   </div>
@@ -336,6 +340,20 @@
 </div>
 
 
+
+<section id="api">
+  <div class="wrap api-grid">
+    <div class="copy rv">
+      <div class="kicker">Programmable</div>
+      <h2>A terminal your agent can drive.</h2>
+      <p class="lede">Every shell gets <span class="mono" style="font-size:13px">$PRISM_SOCKET</span> and a <span class="mono" style="font-size:13px">prism</span> command. List sessions with live agent states, open tabs and splits, type into any pane, read any screen. Newline-delimited JSON, no dependencies.</p>
+    </div>
+    <div class="termbox rv d1">
+      <div class="tbar"><span style="background:#ff5f57"></span><span style="background:#febc2e"></span><span style="background:#28c840"></span></div>
+      <pre id="api-pre"><span class="api-line"><span class="c-dim">~/dev/prism</span> <span class="c-b">❯</span> prism list</span><span class="api-line c-dim">{"tabs":[{"title":"claude","panes":[{"id":1,</span><span class="api-line c-dim">  "agent":true,"working":true, …}]}, …]}</span><span class="api-line">&nbsp;</span><span class="api-line"><span class="c-dim">~/dev/prism</span> <span class="c-b">❯</span> prism split row</span><span class="api-line c-dim">{"pane":4}</span><span class="api-line">&nbsp;</span><span class="api-line"><span class="c-dim">~/dev/prism</span> <span class="c-b">❯</span> prism send 4 <span class="c-y">"npm test"</span></span><span class="api-line"><span class="c-dim">~/dev/prism</span> <span class="c-b">❯</span> prism read 4</span><span class="api-line"><span class="c-g">  ✓ 42 passing</span> <span class="c-dim">(1.2s)</span></span><span class="api-line">&nbsp;</span><span class="api-line"><span class="c-dim">~/dev/prism</span> <span class="c-b">❯</span> prism notify <span class="c-y">"review ready"</span> <span class="c-v">✦</span></span></pre>
+    </div>
+  </div>
+</section>
 
 <section id="features" style="padding-top: 20px;">
   <div class="wrap">
@@ -385,19 +403,7 @@
   <p>PRISM restores your tabs, split layouts, groups, names, and the contents of every pane, scrollback included. You pick up mid-thought, exactly where the screen was.</p>
 </div>
 
-<section id="api">
-  <div class="wrap api-grid">
-    <div class="copy rv">
-      <div class="kicker">Programmable</div>
-      <h2>A terminal your agent can drive.</h2>
-      <p class="lede">Every shell gets <span class="mono" style="font-size:13px">$PRISM_SOCKET</span> and a <span class="mono" style="font-size:13px">prism</span> command. List sessions with live agent states, open tabs and splits, type into any pane, read any screen. Newline-delimited JSON, no dependencies.</p>
-    </div>
-    <div class="termbox rv d1">
-      <div class="tbar"><span style="background:#ff5f57"></span><span style="background:#febc2e"></span><span style="background:#28c840"></span></div>
-      <pre id="api-pre"><span class="api-line"><span class="c-dim">~/dev/prism</span> <span class="c-b">❯</span> prism list</span><span class="api-line c-dim">{"tabs":[{"title":"claude","panes":[{"id":1,</span><span class="api-line c-dim">  "agent":true,"working":true, …}]}, …]}</span><span class="api-line">&nbsp;</span><span class="api-line"><span class="c-dim">~/dev/prism</span> <span class="c-b">❯</span> prism split row</span><span class="api-line c-dim">{"pane":4}</span><span class="api-line">&nbsp;</span><span class="api-line"><span class="c-dim">~/dev/prism</span> <span class="c-b">❯</span> prism send 4 <span class="c-y">"npm test"</span></span><span class="api-line"><span class="c-dim">~/dev/prism</span> <span class="c-b">❯</span> prism read 4</span><span class="api-line"><span class="c-g">  ✓ 42 passing</span> <span class="c-dim">(1.2s)</span></span><span class="api-line">&nbsp;</span><span class="api-line"><span class="c-dim">~/dev/prism</span> <span class="c-b">❯</span> prism notify <span class="c-y">"review ready"</span> <span class="c-v">✦</span></span></pre>
-    </div>
-  </div>
-</section>
+
 
 <section id="faq" style="padding-top: 30px;">
   <div class="wrap">
