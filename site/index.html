@@ -192,8 +192,9 @@
 
   /* ------ marquee ------ */
   .marquee { overflow: hidden; padding: 56px 0 0; -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
-  .marquee-in { display: flex; gap: 10px; width: max-content; animation: mq 30s linear infinite; }
-  @keyframes mq { to { transform: translateX(-50%); } }
+  .marquee-in { display: flex; gap: 10px; width: max-content; animation: mq var(--mq-dur, 30s) linear infinite; }
+  .mq-set { display: flex; gap: 10px; flex: none; }
+  @keyframes mq { to { transform: translateX(calc(-1 * var(--mq-shift, 50%))); } }
   .marquee span { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--dim); border: 1px solid var(--stroke); border-radius: 999px; padding: 6px 14px; white-space: nowrap; background: rgba(255,255,255,0.5); }
 
   /* ------ sections ------ */
@@ -471,9 +472,21 @@
   }, { threshold: 0.12 });
   document.querySelectorAll('.rv').forEach((el) => io.observe(el));
 
-  // marquee duplicate for seamless loop
-  const mq = document.getElementById('mq');
-  mq.innerHTML += mq.innerHTML;
+  // marquee: clone the chip set until it covers any viewport, then slide by
+  // exactly one set width so the loop never shows an end
+  document.fonts.ready.then(() => {
+    const mq = document.getElementById('mq');
+    const set = document.createElement('div');
+    set.className = 'mq-set';
+    [...mq.children].forEach((c) => set.appendChild(c));
+    mq.replaceChildren(set);
+    const gap = 10;
+    const w = set.getBoundingClientRect().width + gap;
+    const copies = Math.max(3, Math.ceil((Math.max(window.innerWidth, 1600) * 2) / w) + 1);
+    for (let i = 1; i < copies; i++) mq.appendChild(set.cloneNode(true));
+    mq.style.setProperty('--mq-shift', w + 'px');
+    mq.style.setProperty('--mq-dur', (w / 55).toFixed(2) + 's');
+  });
 
   // FAQ accordion
   document.querySelectorAll('.qa').forEach((qa) => {
