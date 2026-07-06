@@ -14,7 +14,6 @@
   @font-face { font-family: 'JetBrains Mono'; font-weight: 400; src: url('assets/fonts/JetBrainsMono-Regular.woff2') format('woff2'); }
   @font-face { font-family: 'JetBrains Mono'; font-weight: 700; src: url('assets/fonts/JetBrainsMono-Bold.woff2') format('woff2'); }
 
-  @property --spin { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
   :root {
     --bg: #08090d;
     --fg: #eceef2;
@@ -25,7 +24,7 @@
     --violet: #b388ff;
     --blue: #79b8ff;
     --mono: 'JetBrains Mono', ui-monospace, monospace;
-    --grad: conic-gradient(from var(--spin), #bc82f3, #f5b9ea, #8d9fff, #ff6778, #ffba71, #c686ff, #bc82f3);
+    --grad: conic-gradient(#bc82f3, #f5b9ea, #8d9fff, #ff6778, #ffba71, #c686ff, #bc82f3);
   }
   * { box-sizing: border-box; margin: 0; }
   html { scroll-behavior: smooth; }
@@ -65,14 +64,15 @@
   .ring-mark { position: relative; display: inline-block; }
   .ring-mark .ring {
     position: absolute; inset: 0; border-radius: 28%;
-    background: var(--grad);
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor; mask-composite: exclude;
     padding: 7%;
-    animation: spin 6s linear infinite;
   }
+  .ring-mark .ring::before { content: ''; position: absolute; left: 50%; top: 50%; width: 160%; aspect-ratio: 1; transform: translate(-50%, -50%); background: var(--grad); animation: rot 5s linear infinite; }
   .ring-mark svg { position: absolute; inset: 0; }
-  @keyframes spin { to { --spin: 360deg; } }
+  /* Safari does not repaint gradients driven by animated custom properties,
+     so every "spinning gradient" is an oversized square rotated by transform. */
+  @keyframes rot { to { transform: translate(-50%, -50%) rotate(360deg); } }
 
   /* ------ hero ------ */
   header { padding: 128px 0 20px; position: relative; }
@@ -98,14 +98,21 @@
   .sub { max-width: 520px; color: var(--dim); font-size: 16.5px; }
   .cta-row { display: flex; gap: 14px; margin: 30px 0 12px; flex-wrap: wrap; }
   #download .cta-row { justify-content: center; }
-  .btn-glow { position: relative; border-radius: 12px; padding: 2px; background: var(--grad); animation: spin 3.5s linear infinite; transition: transform 160ms; }
-  .btn-glow::before { /* animated halo so the gradient reads as alive */
-    content: ''; position: absolute; inset: -5px; z-index: -1; border-radius: 16px;
-    background: var(--grad); filter: blur(16px); opacity: 0.45;
-    animation: spin 3.5s linear infinite;
+  .btn-halo { position: relative; display: inline-block; border-radius: 12px; }
+  .btn-halo::before { /* soft breathing glow hugging the button */
+    content: ''; position: absolute; inset: -5px; border-radius: 16px;
+    background: var(--grad); filter: blur(14px);
+    animation: haloPulse 3s ease-in-out infinite;
+  }
+  @keyframes haloPulse { 0%, 100% { opacity: 0.22; } 50% { opacity: 0.5; } }
+  .btn-glow { position: relative; display: block; border-radius: 12px; padding: 2px; overflow: hidden; transition: transform 160ms; }
+  .btn-glow::before { /* rotating gradient ring, clipped to the border gap */
+    content: ''; position: absolute; left: 50%; top: 50%; width: 140%; aspect-ratio: 1;
+    transform: translate(-50%, -50%); background: var(--grad);
+    animation: rot 3.5s linear infinite;
   }
   .btn-glow:hover { transform: translateY(-1px); }
-  .btn-glow > span { display: flex; align-items: center; gap: 9px; background: #0c0e14; border-radius: 10.5px; padding: 13px 26px; font-size: 15px; font-weight: 600; transition: background 140ms; }
+  .btn-glow > span { position: relative; z-index: 1; display: flex; align-items: center; gap: 9px; background: #0c0e14; border-radius: 10.5px; padding: 13px 26px; font-size: 15px; font-weight: 600; transition: background 140ms; }
   .btn-glow:hover > span { background: #141827; }
   .btn-ghost { display: flex; align-items: center; gap: 9px; padding: 14.5px 26px; border-radius: 12px; border: 1px solid var(--stroke); background: rgba(255,255,255,0.04); font-size: 15px; transition: background 140ms, transform 160ms; }
   .btn-ghost:hover { background: rgba(255,255,255,0.08); transform: translateY(-1px); }
@@ -121,11 +128,11 @@
   .hero-demo:hover .demo-stage { transform: rotateY(-3deg) rotateX(1deg); }
   @media (max-width: 960px) { .demo-stage, .hero-demo:hover .demo-stage { transform: none; } }
   .demo-halo {
-    position: absolute; inset: 8% 6% 0; z-index: 0; border-radius: 40px;
-    background: var(--grad); filter: blur(80px) saturate(1.15);
+    position: absolute; inset: 8% 6% 0; z-index: 0;
+    filter: blur(80px) saturate(1.15);
     opacity: 0; transition: opacity 1.4s ease;
-    animation: spin 10s linear infinite;
   }
+  .demo-halo::before { content: ''; position: absolute; left: 50%; top: 50%; width: 110%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; background: var(--grad); animation: rot 10s linear infinite; }
   .demo-stage.glowing .demo-halo { opacity: 0.22; }
   .demo-win {
     position: relative; z-index: 1;
@@ -136,13 +143,12 @@
   }
   .demo-border { /* the work glow, exactly like the product */
     position: absolute; inset: 0; z-index: 5; pointer-events: none; border-radius: 16px;
-    background: var(--grad);
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor; mask-composite: exclude;
     padding: 2px;
     opacity: 0; transition: opacity 900ms ease;
-    animation: spin 4.5s linear infinite;
   }
+  .demo-border::before { content: ''; position: absolute; left: 50%; top: 50%; width: 140%; aspect-ratio: 1; transform: translate(-50%, -50%); background: var(--grad); animation: rot 4.5s linear infinite; }
   .demo-stage.glowing .demo-border { opacity: 1; }
   .d-titlebar { display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 14px; border-bottom: 1px solid rgba(255,255,255,0.05); }
   .d-lights { display: flex; gap: 7px; margin-right: 8px; }
@@ -286,7 +292,7 @@
       <h1>An <span class="hl">agent-native</span> terminal that doesn't look like shit.</h1>
       <p class="sub">Built to supervise Claude Code, Codex, and anything else that runs in a shell.</p>
       <div class="cta-row">
-        <a class="btn-glow" href="https://github.com/comacoded/prism-terminal/releases/latest"><span>⬇ Download for macOS</span></a>
+        <span class="btn-halo"><a class="btn-glow" href="https://github.com/comacoded/prism-terminal/releases/latest"><span>⬇ Download for macOS</span></a></span>
         <a class="btn-ghost" href="https://github.com/comacoded/prism-terminal">View on GitHub</a>
       </div>
       <p class="req">macOS 13+ · Apple silicon · free and open source</p>
@@ -382,7 +388,7 @@
           <li>commands over 15s notify you when you're away</li>
         </ul>
       </div>
-      <div class="shot rv d1"><img src="assets/hero.png" loading="lazy" alt="Split panes with a Claude session and test output side by side, artifacts rail open" /></div>
+      <div class="shot rv d1"><img src="assets/splits.png" loading="lazy" alt="Split panes with a Claude session on the left and test output on the right, footer telemetry visible" /></div>
     </div>
 
     <div class="feature">
@@ -439,7 +445,7 @@
     <h2>Bring your own agent.</h2>
     <p class="lede" style="margin: 14px auto 0;">Free and open source. One small DMG, no accounts, no bundled model, no telemetry. Your agents, supervised.</p>
     <div class="cta-row" style="margin-top: 30px;">
-      <a class="btn-glow" href="https://github.com/comacoded/prism-terminal/releases/latest"><span>⬇ Download PRISM for macOS</span></a>
+      <span class="btn-halo"><a class="btn-glow" href="https://github.com/comacoded/prism-terminal/releases/latest"><span>⬇ Download PRISM for macOS</span></a></span>
       <a class="btn-ghost" href="https://github.com/comacoded/prism-terminal/blob/main/FEATURES.md">Read the docs</a>
     </div>
     <p class="req">PRISM_0.1.0_aarch64.dmg · macOS 13+ · Apple silicon</p>
