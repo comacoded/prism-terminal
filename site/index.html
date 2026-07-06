@@ -201,6 +201,7 @@
 
 
   .feature { display: grid; grid-template-columns: 5fr 7fr; gap: 56px; align-items: center; padding: 72px 0; }
+  .feature.flip { grid-template-columns: 7fr 5fr; } /* image keeps the wide column on flipped rows */
   .feature.flip .copy { order: 2; }
   @media (max-width: 900px) { .feature { grid-template-columns: 1fr !important; gap: 26px; } .feature.flip .copy { order: 0; } }
   .feature h2 { font-size: clamp(23px, 3vw, 31px); }
