@@ -140,9 +140,9 @@
       <p class="lede">PRISM is an agent-native terminal for macOS. This page covers everything it can do, because a lot of it is deliberately quiet until you need it.</p>
       <h2>Install</h2>
       <ul>
-        <li>Download <code>PRISM_0.1.0_aarch64.dmg</code> from <a href="https://github.com/comacoded/prism-terminal/releases/latest">Releases</a>, open it, and drag PRISM to Applications.</li>
+        <li>Download <code>PRISM_0.2.0_universal.dmg</code> from <a href="https://github.com/comacoded/prism-terminal/releases/latest">Releases</a>, open it, and drag PRISM to Applications.</li>
         <li>PRISM is currently ad-hoc signed. On first launch, if macOS blocks it, <strong>right-click the app and choose Open</strong> once; after that it opens normally.</li>
-        <li>Requirements: macOS 13+, Apple silicon. Intel and Linux are on the <a href="#platforms">roadmap</a>.</li>
+        <li>Requirements: macOS 13+. The DMG is a universal binary (Apple silicon and Intel). Linux is on the <a href="#platforms">roadmap</a>.</li>
       </ul>
       <p>On first run PRISM starts your login shell (zsh by default), injects its shell integration automatically (<a href="#shell">details</a>), and restores any previous session.</p>
     </section>
@@ -181,6 +181,9 @@
         <li><kbd>⌘D</kbd> splits right, <kbd>⇧⌘D</kbd> splits down; up to four panes per tab, one direction per tab in v1.</li>
         <li>Every pane is a full independent shell with its own agent detection, prompt marks, and artifacts.</li>
         <li><strong>Click a pane to focus it</strong>; the focused pane wears an accent border and drives the footer, artifacts rail, search, and prompt navigation. <kbd>⌘W</kbd> closes the focused pane.</li>
+        <li><strong>Resize</strong> by dragging the divider between panes.</li>
+        <li><strong>Zoom</strong> the focused pane to fill the tab with <kbd>⇧⌘↵</kbd>; toggle again to restore the layout.</li>
+        <li><strong>Broadcast input</strong> with <kbd>⇧⌘B</kbd>: whatever you type in the focused pane is sent to every pane in the tab (footer shows "broadcast" while it's on).</li>
         <li>The tab's dot and the window glow aggregate across panes: if any pane's agent is working, the tab is working.</li>
       </ul>
     </section>
@@ -191,6 +194,8 @@
         <li><kbd>⌘P</kbd> opens the command palette: every action plus a "Go to" entry for each open tab. Type to filter, arrows to move, Enter to run.</li>
         <li><kbd>⌘F</kbd> searches scrollback with live highlight-as-you-type, a match counter, and scrollbar markers. Enter / Shift+Enter step through matches.</li>
         <li><kbd>⌘↑</kbd> / <kbd>⌘↓</kbd> jump between shell prompts in scrollback (powered by <a href="#shell">shell integration</a>).</li>
+        <li>The palette also lists your <strong>recent commands</strong> (recorded by shell integration, persisted across launches): pick one to run it again in the focused pane.</li>
+        <li><strong>⌘-click any file path</strong> printed in the terminal to open it in your editor (VS Code, Cursor, Zed, or the system default; pick in settings). Paths like <code>src/main.js:42</code> jump to the line.</li>
         <li>The palette also holds less-common actions: copy last command output, reveal the current folder in Finder, clear terminal.</li>
       </ul>
     </section>
@@ -208,6 +213,8 @@
         <li><strong>Themes</strong>: ten palettes chosen from live preview cards: PRISM, Dark, Light, Dracula, Cyber Wave, Nord, One Dark, Solarized Dark, Gruvbox Dark, Catppuccin Mocha. All render over the native glass. Picking <strong>Light</strong> restyles the entire chrome, not just terminal colors.</li>
         <li><strong>Text size</strong>: slider from 10 to 20, or <kbd>⌘+</kbd> / <kbd>⌘−</kbd> anywhere, <kbd>⌘0</kbd> to reset.</li>
         <li><strong>Glass tint</strong>: how dark (or light, in Light mode) the translucent background is over your wallpaper.</li>
+        <li><strong>Import themes</strong>: bring any iTerm <code>.itermcolors</code> file or Ghostty theme in via the Import button; imported themes appear as cards and can be removed with the × on hover.</li>
+        <li><strong>Editor</strong>: which editor ⌘-clicked paths open in.</li>
         <li><strong>Cursor</strong>: bar, block, or underline, with a blink toggle.</li>
         <li><strong>Work glow</strong>: turn the agent glow border off if it's not your thing.</li>
         <li><strong>Shortcuts</strong>: the full keyboard reference lives at the bottom of the settings panel.</li>
@@ -222,6 +229,9 @@
         <tr><td><kbd>⌘T</kbd></td><td>New tab (inherits current directory)</td></tr>
         <tr><td><kbd>⌘W</kbd></td><td>Close focused pane, or the tab if it's the last pane</td></tr>
         <tr><td><kbd>⌘D</kbd> / <kbd>⇧⌘D</kbd></td><td>Split right / split down</td></tr>
+        <tr><td><kbd>⇧⌘↵</kbd></td><td>Zoom the focused pane (toggle)</td></tr>
+        <tr><td><kbd>⇧⌘B</kbd></td><td>Broadcast input to all panes (toggle)</td></tr>
+        <tr><td><kbd>⌘ click</kbd> a path</td><td>Open the file in your editor</td></tr>
         <tr><td><kbd>⇧⌘{</kbd> / <kbd>⇧⌘}</kbd></td><td>Previous / next tab</td></tr>
         <tr><td><kbd>⌘1</kbd>…<kbd>⌘9</kbd></td><td>Jump to tab by position</td></tr>
         <tr><td><kbd>⌘E</kbd></td><td>Mission control</td></tr>
@@ -256,12 +266,13 @@
       <ul>
         <li>While an agent is active, PRISM watches the session's working directory. Every file the agent creates or edits appears in the rail, newest first, with the working folder shown in the header.</li>
         <li>The rail <strong>opens itself</strong> when files start landing in the active tab, follows you between tabs, and stays closed for a session once you dismiss it. Files landing in a background tab pulse the rail button instead.</li>
-        <li>Click any entry to reveal the file in Finder.</li>
+        <li>Click any entry to reveal the file in Finder. Hovering a row shows two more actions: <strong>Quick Look</strong> (eye) and <strong>git diff</strong>, which opens the file's uncommitted changes in an overlay.</li>
       </ul>
       <h3>Mission control</h3>
       <p><kbd>⌘E</kbd> shows every tab as a live card: state and time in state, working directory, branch, group, pane count, and the last files touched. Click a card to jump in.</p>
       <h3>Notifications</h3>
       <ul>
+        <li><strong>When an agent needs you</strong>: if an agent stops generating while you're in another tab or app, PRISM notifies you, pulses that tab's dot amber, and badges the Dock icon with the count of waiting agents. Everything clears when you return to the tab.</li>
         <li>Commands that run longer than 15 seconds notify you when they finish, if you're in another tab or app.</li>
         <li>Programs can send notifications (OSC 9 / OSC 777) and taskbar progress (OSC 9;4), which renders as a hairline progress bar on the tab.</li>
       </ul>
@@ -347,7 +358,7 @@
       <table>
         <tr><th>Platform</th><th>Status</th><th>Goal</th></tr>
         <tr><td>macOS, Apple silicon</td><td>Shipping</td><td>—</td></tr>
-        <tr><td>macOS, Intel</td><td>Planned</td><td>v0.2 as a universal binary, targeted end of July 2026</td></tr>
+        <tr><td>macOS, Intel</td><td>Shipping (universal binary since v0.2)</td><td>—</td></tr>
         <tr><td>Linux</td><td>Planned</td><td>v0.3 beta (AppImage + .deb), targeted end of September 2026; agent layer fully intact, glass degrades gracefully by compositor</td></tr>
         <tr><td>Windows</td><td>Not planned</td><td>—</td></tr>
       </table>

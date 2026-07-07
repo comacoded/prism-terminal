@@ -29,7 +29,8 @@ rendering, portable-pty, zsh shell integration injected via ZDOTDIR.
   working folder in the header. The rail opens itself when the active tab's
   agent produces files, follows you between tabs (open where there are
   artifacts, closed where there aren't), and stays closed for a session once
-  you dismiss it manually. Click any entry to reveal it in Finder.
+  you dismiss it manually. Click any entry to reveal it in Finder; hover for
+  Quick Look and a git-diff overlay of that file's uncommitted changes.
 - **Mission control** (Cmd+E). A grid of every session: title, state and how
   long it has been in that state, working directory, git branch, and the last
   files touched. Working sessions get a violet border. Click a card to jump
@@ -42,9 +43,19 @@ rendering, portable-pty, zsh shell integration injected via ZDOTDIR.
 - **Split panes.** Cmd+D splits right, Cmd+Shift+D splits down (up to four
   panes per tab, one direction per tab in v1). Click a pane to focus it;
   the focused pane wears an accent border, gets Cmd+W'd first, and drives
-  the footer, artifacts rail, and search. Every pane is its own shell with
-  independent agent detection, so the glow and tab state aggregate across
-  panes.
+  the footer, artifacts rail, and search. Drag the divider to resize.
+  Cmd+Shift+Enter zooms the focused pane to fill the tab (toggle).
+  Cmd+Shift+B broadcasts typed input to every pane in the tab. Every pane
+  is its own shell with independent agent detection, so the glow and tab
+  state aggregate across panes.
+- **Needs-you notifications.** When an agent stops generating while you are
+  in another tab or app, PRISM notifies you, pulses that tab's dot amber,
+  and badges the Dock with the count of waiting agents.
+- **Semantic history.** Cmd-click any file path printed in the terminal to
+  open it in your editor (VS Code, Cursor, Zed, or system default; chosen
+  in settings). path:line jumps to the line.
+- **Command history.** Shell integration records commands; the palette
+  lists recent ones for one-keystroke re-run, persisted across launches.
 - **Tab groups** (Chrome-style). Right-click a tab to start a group or join
   an existing one; groups get a colored chip in the strip with a name and a
   nine-color picker (right-click the chip to edit or ungroup). Clicking a
@@ -92,7 +103,8 @@ rendering, portable-pty, zsh shell integration injected via ZDOTDIR.
 - **Settings** (Cmd+, or the gear button; Primer-informed UI). Ten color
   themes chosen from Warp-style preview cards (PRISM, Dark, Light, Dracula,
   Cyber Wave, Nord, One Dark, Solarized Dark, Gruvbox Dark, Catppuccin
-  Mocha); the Light theme flips the entire chrome to a light appearance.
+  Mocha, plus imported iTerm .itermcolors and Ghostty theme files); the
+  Light theme flips the entire chrome to a light appearance.
   Plus text size (10 to 20, also Cmd+plus / Cmd+minus / Cmd+0), glass tint,
   cursor style (bar / block / underline) and blink, work-glow toggle, a
   reset-to-defaults button, and a full shortcuts reference. Persisted
@@ -164,6 +176,9 @@ unfocused, so foreground work never spams you.
 | Cmd+K | Clear terminal |
 | Cmd+Up / Cmd+Down | Previous / next prompt |
 | Cmd+Shift+A | Toggle artifacts rail |
+| Cmd+Shift+Enter | Zoom focused pane |
+| Cmd+Shift+B | Broadcast input to panes |
+| Cmd+click path | Open file in editor |
 | Cmd+, | Settings |
 | Cmd+plus / Cmd+minus | Text size up / down |
 | Cmd+0 | Reset text size |
@@ -182,7 +197,7 @@ unfocused, so foreground work never spams you.
 
 ## Known limits
 
-- macOS only (vibrancy, lsof, osascript, and `open` are macOS paths).
+- macOS only (universal binary: Apple silicon + Intel). Vibrancy, lsof, osascript, and `open` are macOS paths; Linux is planned for v0.3.
 - Shell integration is zsh only; bash/fish sessions still work but lose
   prompt marks, duration chips, and OSC 7 (cwd falls back to lsof polling).
 - No splits yet (planned; the largest structural gap vs Ghostty).

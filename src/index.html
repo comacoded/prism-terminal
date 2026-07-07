@@ -66,6 +66,14 @@
       <button id="ge-ungroup">Ungroup tabs</button>
     </div>
 
+    <!-- Artifact diff overlay. -->
+    <div id="diff-view" class="overlay hidden">
+      <div class="diff-box">
+        <div class="diff-head"><span id="diff-title">diff</span><span class="diff-hint">esc to close</span></div>
+        <pre id="diff-body"></pre>
+      </div>
+    </div>
+
     <!-- Settings popover (Cmd+,). -->
     <div id="settings" class="hidden">
       <div class="set-head">Appearance</div>
@@ -79,6 +87,17 @@
         <span class="set-label">Glass tint</span>
         <input type="range" id="set-tint" min="0" max="80" step="5" />
         <span class="set-val" id="set-tint-val"></span>
+      </div>
+      <button id="set-import">Import theme (.itermcolors / Ghostty)…</button>
+      <input type="file" id="set-import-file" style="display:none" />
+      <div class="set-row">
+        <span class="set-label">Editor</span>
+        <select id="set-editor">
+          <option value="code">VS Code</option>
+          <option value="cursor">Cursor</option>
+          <option value="zed">Zed</option>
+          <option value="open">System default</option>
+        </select>
       </div>
       <div class="set-row">
         <span class="set-label">Cursor</span>

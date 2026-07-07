@@ -123,7 +123,12 @@ if [[ -f "${PRISM_USER_ZDOTDIR:-$HOME}/.zshrc" ]]; then
 fi
 if [[ "${PRISM_USER_ZDOTDIR:-$HOME}" == "$HOME" ]]; then unset ZDOTDIR; else ZDOTDIR="$PRISM_USER_ZDOTDIR"; fi
 
-__prism_preexec() { printf '\033]133;C\007'; }
+__prism_preexec() {
+  printf '\033]133;C\007'
+  # command text for the palette's history (newlines flattened)
+  local _c="${1//$'\n'/ }"
+  printf '\033]633;E;%s\007' "$_c"
+}
 __prism_precmd()  { printf '\033]133;D;%s\007\033]133;A\007' "$?"; }
 # OSC 7: report the cwd as a percent-encoded file:// URL on every directory change.
 __prism_osc7() {
@@ -414,6 +419,80 @@ fn open_url(url: String) {
 }
 
 #[tauri::command]
+fn quicklook(path: String) {
+    if std::path::Path::new(&path).exists() {
+        let _ = Command::new("qlmanage").arg("-p").arg(path).spawn();
+    }
+}
+
+/// Unstaged diff for one file (falls back to diff vs HEAD for staged edits).
+#[tauri::command]
+fn artifact_diff(cwd: String, path: String) -> String {
+    let run = |args: &[&str]| {
+        Command::new("git")
+            .arg("-C").arg(&cwd)
+            .args(args)
+            .arg("--").arg(&path)
+            .output()
+            .ok()
+            .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+            .unwrap_or_default()
+    };
+    let mut out = run(&["diff", "--no-color"]);
+    if out.trim().is_empty() {
+        out = run(&["diff", "--no-color", "HEAD"]);
+    }
+    if out.trim().is_empty() {
+        "(no uncommitted changes for this file)".into()
+    } else {
+        out
+    }
+}
+
+/// Cmd-click semantic history: open a path (optionally file:line) in the
+/// configured editor, falling back to the system opener.
+#[tauri::command]
+fn open_in_editor(cwd: String, path: String, line: Option<u32>, editor: String) {
+    let mut p = path;
+    if let Some(rest) = p.clone().strip_prefix("~/") {
+        p = format!("{}/{}", home(), rest);
+    }
+    let abs = if p.starts_with('/') {
+        std::path::PathBuf::from(&p)
+    } else {
+        std::path::Path::new(&cwd).join(&p)
+    };
+    let Ok(abs) = abs.canonicalize() else { return };
+    if !abs.exists() {
+        return;
+    }
+    if abs.is_dir() {
+        let _ = Command::new("open").arg(&abs).spawn();
+        return;
+    }
+    let target = match line {
+        Some(l) => format!("{}:{}", abs.display(), l),
+        None => abs.display().to_string(),
+    };
+    let spawned = match editor.as_str() {
+        "code" | "cursor" => Command::new(&editor).arg("-g").arg(&target).spawn(),
+        "zed" => Command::new("zed").arg(&target).spawn(),
+        _ => Command::new("open").arg(&abs).spawn(),
+    };
+    if spawned.is_err() {
+        let _ = Command::new("open").arg(&abs).spawn();
+    }
+}
+
+/// Dock badge with the count of agents waiting on the user.
+#[tauri::command]
+fn set_badge(app: tauri::AppHandle, count: i64) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.set_badge_count(if count > 0 { Some(count) } else { None });
+    }
+}
+
+#[tauri::command]
 fn notify_user(title: String, body: String) {
     let script = format!(
         "display notification \"{}\" with title \"{}\"",
@@ -652,6 +731,10 @@ fn main() {
             pty_kill,
             set_active,
             artifact_reveal,
+            quicklook,
+            artifact_diff,
+            open_in_editor,
+            set_badge,
             notify_user,
             open_url,
             session_save,

@@ -85,7 +85,12 @@ const THEMES = {
     brightCyan: '#94e2d5', brightWhite: '#a6adc8',
   } },
 };
-function currentTheme() { return THEMES[settings.theme] || THEMES.prism; }
+function allThemes() {
+  const merged = { ...THEMES };
+  for (const c of settings.custom || []) merged[c.key] = c;
+  return merged;
+}
+function currentTheme() { return allThemes()[settings.theme] || THEMES.prism; }
 function termTheme() {
   const t = currentTheme();
   return {
@@ -141,6 +146,14 @@ const setThemes = document.getElementById('set-themes');
 const setCursor = document.getElementById('set-cursor');
 const setBlink = document.getElementById('set-blink');
 const setKeys = document.getElementById('set-keys');
+const setEditor = document.getElementById('set-editor');
+const setImport = document.getElementById('set-import');
+const setImportFile = document.getElementById('set-import-file');
+const diffView = document.getElementById('diff-view');
+const diffTitle = document.getElementById('diff-title');
+const diffBody = document.getElementById('diff-body');
+const EYE_ICON = '<svg viewBox="0 0 256 256"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg>';
+const DIFF_ICON = '<svg viewBox="0 0 256 256"><path d="M112,152a8,8,0,0,0-8,8v28.69L66.34,151A8,8,0,0,1,64,145.37V95a32,32,0,1,0-16,0v50.38a23.85,23.85,0,0,0,7,17L92.69,200H64a8,8,0,0,0,0,16h48a8,8,0,0,0,8-8V160A8,8,0,0,0,112,152ZM40,64A16,16,0,1,1,56,80,16,16,0,0,1,40,64Zm168,97V110.63a23.85,23.85,0,0,0-7-17L163.31,56H192a8,8,0,0,0,0-16H144a8,8,0,0,0-8,8V96a8,8,0,0,0,16,0V67.31L189.66,105a8,8,0,0,1,2.34,5.66V161a32,32,0,1,0,16,0Zm-8,47a16,16,0,1,1,16-16A16,16,0,0,1,200,208Z"/></svg>';
 
 const tabs = [];
 let activeTab = null;
@@ -196,11 +209,13 @@ function copyText(text) {
 function activePane() { return activeTab?.active ?? null; }
 
 // --- Settings -----------------------------------------------------------------
-const DEFAULT_SETTINGS = { fontSize: 13.5, tint: 45, glow: true, theme: 'prism', cursor: 'bar', blink: true };
+const DEFAULT_SETTINGS = { fontSize: 13.5, tint: 45, glow: true, theme: 'prism', cursor: 'bar', blink: true, editor: 'code', custom: [] };
 let settings = { ...DEFAULT_SETTINGS };
 const HOTKEYS = [
   ['⌘T', 'New tab'], ['⌘W', 'Close pane / tab'],
   ['⌘D', 'Split right'], ['⇧⌘D', 'Split down'],
+  ['⇧⌘↵', 'Zoom pane'], ['⇧⌘B', 'Broadcast input'],
+  ['⌘ click path', 'Open file in editor'],
   ['⇧⌘{  ⇧⌘}', 'Previous / next tab'], ['⌘1…9', 'Jump to tab'],
   ['⌘E', 'Mission control'], ['⌘F', 'Find in scrollback'],
   ['⌘P', 'Command palette'], ['⌘K', 'Clear terminal'],
@@ -233,6 +248,7 @@ function applySettings(save) {
   setGlow.checked = settings.glow;
   setCursor.value = settings.cursor;
   setBlink.checked = settings.blink;
+  setEditor.value = settings.editor;
   setThemes.querySelectorAll('.theme-card').forEach((c) => {
     c.classList.toggle('sel', c.dataset.theme === settings.theme);
   });
@@ -240,7 +256,7 @@ function applySettings(save) {
 }
 function buildThemeCards() {
   setThemes.replaceChildren();
-  for (const [key, th] of Object.entries(THEMES)) {
+  for (const [key, th] of Object.entries(allThemes())) {
     const card = document.createElement('div');
     card.className = 'theme-card';
     card.dataset.theme = key;
@@ -272,6 +288,21 @@ function buildThemeCards() {
     }
     foot.append(name, dots);
     card.append(prev, foot);
+    if (th.custom) {
+      const del = document.createElement('span');
+      del.className = 'tc-del';
+      del.textContent = '×';
+      del.title = 'Remove imported theme';
+      del.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        settings.custom = settings.custom.filter((c) => c.key !== key);
+        if (settings.theme === key) settings.theme = 'prism';
+        buildThemeCards();
+        applySettings(true);
+      });
+      card.appendChild(del);
+    }
     card.addEventListener('mousedown', (e) => {
       e.preventDefault();
       settings.theme = key;
@@ -282,7 +313,7 @@ function buildThemeCards() {
 }
 function loadSettings() {
   try { settings = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem('prism.settings') || '{}') }; } catch {}
-  if (!THEMES[settings.theme]) settings.theme = 'prism';
+  if (!allThemes()[settings.theme]) settings.theme = 'prism';
   buildThemeCards();
   for (const [keys, label] of HOTKEYS) {
     const row = document.createElement('div');
@@ -312,6 +343,81 @@ setTint.addEventListener('input', () => { settings.tint = parseInt(setTint.value
 setGlow.addEventListener('change', () => { settings.glow = setGlow.checked; applySettings(true); });
 setCursor.addEventListener('change', () => { settings.cursor = setCursor.value; applySettings(true); });
 setBlink.addEventListener('change', () => { settings.blink = setBlink.checked; applySettings(true); });
+setEditor.addEventListener('change', () => { settings.editor = setEditor.value; applySettings(true); });
+
+// --- Theme import: iTerm .itermcolors (plist XML) or Ghostty key=value ---------
+function plistColor(dict) {
+  const out = {};
+  let key = null;
+  for (const el of dict.children) {
+    if (el.tagName === 'key') key = el.textContent;
+    else if (el.tagName === 'real' && key) { out[key] = parseFloat(el.textContent); key = null; }
+    else key = null;
+  }
+  const c = (v) => Math.round(Math.max(0, Math.min(1, v ?? 0)) * 255);
+  return '#' + [c(out['Red Component']), c(out['Green Component']), c(out['Blue Component'])]
+    .map((n) => n.toString(16).padStart(2, '0')).join('');
+}
+const ANSI_KEYS = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white',
+  'brightBlack', 'brightRed', 'brightGreen', 'brightYellow', 'brightBlue', 'brightMagenta', 'brightCyan', 'brightWhite'];
+function parseItermColors(xml) {
+  const doc = new DOMParser().parseFromString(xml, 'text/xml');
+  const root = doc.querySelector('plist > dict');
+  if (!root) return null;
+  const map = {};
+  let key = null;
+  for (const el of root.children) {
+    if (el.tagName === 'key') key = el.textContent;
+    else if (el.tagName === 'dict' && key) { map[key] = plistColor(el); key = null; }
+  }
+  const colors = {};
+  ANSI_KEYS.forEach((k, i) => { colors[k] = map[`Ansi ${i} Color`] || '#888888'; });
+  colors.foreground = map['Foreground Color'] || '#e8e8ea';
+  colors.cursor = map['Cursor Color'] || colors.foreground;
+  colors.selectionBackground = rgba(map['Selection Color'] || colors.blue, 0.35);
+  return { colors, bg: map['Background Color'] || '#101216' };
+}
+function parseGhosttyTheme(text) {
+  const map = {};
+  const palette = {};
+  for (const line of text.split('\n')) {
+    const m = line.match(/^\s*([\w-]+)\s*=\s*(.+?)\s*$/);
+    if (!m) continue;
+    if (m[1] === 'palette') {
+      const pm = m[2].match(/^(\d+)\s*=\s*(#?[0-9a-fA-F]{6})/);
+      if (pm) palette[+pm[1]] = pm[2].startsWith('#') ? pm[2] : '#' + pm[2];
+    } else {
+      map[m[1]] = m[2].startsWith('#') ? m[2] : '#' + m[2].replace(/[^0-9a-fA-F]/g, '');
+    }
+  }
+  if (Object.keys(palette).length < 8) return null;
+  const colors = {};
+  ANSI_KEYS.forEach((k, i) => { colors[k] = palette[i] || palette[i - 8] || '#888888'; });
+  colors.foreground = map.foreground || '#e8e8ea';
+  colors.cursor = map['cursor-color'] || colors.foreground;
+  colors.selectionBackground = rgba(map['selection-background'] || colors.blue, 0.35);
+  return { colors, bg: map.background || '#101216' };
+}
+setImport.addEventListener('mousedown', (e) => { e.preventDefault(); setImportFile.click(); });
+setImportFile.addEventListener('change', () => {
+  const f = setImportFile.files?.[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const text = String(reader.result);
+    const parsed = text.trimStart().startsWith('<') ? parseItermColors(text) : parseGhosttyTheme(text);
+    if (!parsed) { invoke('notify_user', { title: 'PRISM', body: 'Could not read that theme file.' }); return; }
+    const label = f.name.replace(/\.(itermcolors|conf|txt|theme)$/i, '');
+    const key = 'custom-' + label.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    settings.custom = (settings.custom || []).filter((c) => c.key !== key);
+    settings.custom.push({ key, label, custom: true, bg: parsed.bg, colors: parsed.colors });
+    settings.theme = key;
+    buildThemeCards();
+    applySettings(true);
+  };
+  reader.readAsText(f);
+  setImportFile.value = '';
+});
 document.getElementById('set-reset').addEventListener('mousedown', (e) => {
   e.preventDefault();
   settings = { ...DEFAULT_SETTINGS };
@@ -356,11 +462,37 @@ setInterval(() => {
       } else if (p.burstActive && Date.now() - p.workSeen > WORK_HOLD_MS) {
         p.burstActive = false;
         changed = true;
+        // agent went quiet but is still alive: it's probably waiting on you
+        setTimeout(() => {
+          if (!p.burstActive && p.agentActive && !p.exited) needsAttention(t, p);
+        }, 2000);
       }
     }
     if (changed) { refreshTab(t); syncGlow(); }
   }
 }, WORK_SCAN_MS);
+function needsAttention(t, p) {
+  if (t === activeTab && document.hasFocus()) return;
+  if (!t.attention) {
+    t.attention = true;
+    t.tabEl.dataset.attention = '1';
+    updateDockBadge();
+    invoke('notify_user', {
+      title: `${p.fgProcess || 'agent'} is waiting on you`,
+      body: tilde(p.cwd || ''),
+    });
+  }
+}
+function clearAttention(t) {
+  if (!t.attention) return;
+  t.attention = false;
+  delete t.tabEl.dataset.attention;
+  updateDockBadge();
+}
+function updateDockBadge() {
+  invoke('set_badge', { count: tabs.filter((t) => t.attention).length }).catch(() => {});
+}
+window.addEventListener('focus', () => { if (activeTab) clearAttention(activeTab); });
 function clearWork(p, t) {
   p.burstActive = false; p.workSeen = 0;
   refreshTab(t); syncGlow();
@@ -380,7 +512,8 @@ function renderFooter() {
     fCmd.classList.toggle('err', !ok);
   }
   fCmd.style.display = lc ? 'inline-flex' : 'none';
-  fProc.textContent = p.exited ? 'exited' : p.fgProcess || 'shell';
+  const proc = p.exited ? 'exited' : p.fgProcess || 'shell';
+  fProc.textContent = activeTab.broadcast ? `broadcast · ${proc}` : proc;
   fUp.textContent = uptime(Date.now() - activeTab.startTime);
 }
 
@@ -430,8 +563,22 @@ function hookAppProtocols(t, p) {
   });
 }
 
+// --- Command history (OSC 633;E from the zsh preexec hook) --------------------
+let recentCmds = [];
+function recordCmd(cmd, cwd) {
+  cmd = cmd.trim();
+  if (!cmd || cmd.length > 300) return;
+  recentCmds = recentCmds.filter((r) => r.cmd !== cmd);
+  recentCmds.unshift({ cmd, cwd });
+  if (recentCmds.length > 200) recentCmds.pop();
+}
+
 // --- Semantic prompts (OSC 133, emitted by the injected zsh hooks) -----------
 function hookPromptMarks(p) {
+  p.term.parser.registerOscHandler(633, (data) => {
+    if (data.startsWith('E;')) recordCmd(data.slice(2), p.cwd);
+    return true;
+  });
   p.term.parser.registerOscHandler(133, (data) => {
     const kind = data[0];
     if (kind === 'A') { // prompt start
@@ -518,7 +665,23 @@ function renderArtifacts(tab) {
     when.className = 'art-when';
     when.textContent = relTime(rec.time);
     meta.append(dir, when);
-    row.append(name, meta);
+    const acts = document.createElement('div');
+    acts.className = 'art-acts';
+    const ql = document.createElement('button');
+    ql.innerHTML = EYE_ICON;
+    ql.title = 'Quick Look';
+    ql.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); invoke('quicklook', { path: rec.path }); });
+    const df = document.createElement('button');
+    df.innerHTML = DIFF_ICON;
+    df.title = 'Git diff';
+    df.addEventListener('mousedown', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const out = await invoke('artifact_diff', { cwd: p?.cwd || HOME, path: rec.path });
+      showDiff(rec.path, out);
+    });
+    acts.append(ql, df);
+    row.append(name, meta, acts);
     row.addEventListener('click', () => invoke('artifact_reveal', { path: rec.path }));
     artList.appendChild(row);
   }
@@ -539,6 +702,40 @@ function togglePanel() {
   // manually closing a rail that has content means "stop auto-opening here"
   if (activeTab) activeTab.railDismissed = !opening && (activePane()?.artifacts.length ?? 0) > 0;
   setPanel(opening);
+}
+
+// --- Semantic history: Cmd-click a path to open it in your editor --------------
+const PATH_TOKEN = /(?:~\/|\.{1,2}\/|\/)?[\w.@%+-]+(?:\/[\w.@%+-]+)+(?::\d+)?/g;
+function hookPathLinks(pane) {
+  pane.term.registerLinkProvider({
+    provideLinks(row, cb) {
+      const line = pane.term.buffer.active.getLine(row - 1);
+      if (!line) return cb(undefined);
+      const text = line.translateToString(true);
+      const links = [];
+      let m;
+      PATH_TOKEN.lastIndex = 0;
+      while ((m = PATH_TOKEN.exec(text))) {
+        const token = m[0];
+        if (token.startsWith('http')) continue;
+        links.push({
+          range: { start: { x: m.index + 1, y: row }, end: { x: m.index + token.length, y: row } },
+          text: token,
+          activate(ev) {
+            if (!ev.metaKey) return; // Cmd-click only, plain clicks stay in the terminal
+            const lm = token.match(/^(.*?):(\d+)$/);
+            invoke('open_in_editor', {
+              cwd: pane.cwd || HOME,
+              path: lm ? lm[1] : token,
+              line: lm ? parseInt(lm[2], 10) : null,
+              editor: settings.editor,
+            });
+          },
+        });
+      }
+      cb(links.length ? links : undefined);
+    },
+  });
 }
 
 // --- Panes (splits) -----------------------------------------------------------
@@ -600,12 +797,20 @@ async function createPane(tab, startCwd, content) {
   };
   hookPromptMarks(pane);
   hookAppProtocols(tab, pane);
+  hookPathLinks(pane);
   search.onDidChangeResults(({ resultIndex, resultCount }) => {
     if (pane === activePane() && !findBar.classList.contains('hidden')) {
       findCount.textContent = resultCount ? `${resultIndex + 1}/${resultCount}` : '0/0';
     }
   });
-  term.onData((d) => invoke('pty_write', { id, data: d }));
+  term.onData((d) => {
+    invoke('pty_write', { id, data: d });
+    if (tab.broadcast && pane === tab.active) {
+      for (const p2 of tab.panes) {
+        if (p2 !== pane && !p2.exited) invoke('pty_write', { id: p2.id, data: d });
+      }
+    }
+  });
   term.onTitleChange((title) => {
     if (!title || pane !== tab.active) return;
     tab.autoTitle = title;
@@ -627,22 +832,81 @@ function setActivePane(tab, pane) {
     pane.term.focus();
   }
 }
+function syncDividers(t) {
+  t.paneEl.querySelectorAll('.split-divider').forEach((d) => d.remove());
+  if (t.panes.length < 2) return;
+  for (let i = 0; i < t.panes.length - 1; i++) {
+    const div = document.createElement('div');
+    div.className = 'split-divider';
+    div.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const col = t.splitDir === 'column';
+      const prev = t.panes[i], next = t.panes[i + 1];
+      const pr = prev.el.getBoundingClientRect(), nr = next.el.getBoundingClientRect();
+      const total = (col ? pr.height + nr.height : pr.width + nr.width);
+      const growSum = (parseFloat(prev.el.style.flexGrow) || 1) + (parseFloat(next.el.style.flexGrow) || 1);
+      const start = col ? pr.top : pr.left;
+      let raf = null;
+      const move = (ev) => {
+        const pos = (col ? ev.clientY : ev.clientX) - start;
+        const frac = Math.max(0.15, Math.min(0.85, pos / total));
+        prev.el.style.flexGrow = (frac * growSum).toFixed(3);
+        next.el.style.flexGrow = ((1 - frac) * growSum).toFixed(3);
+        if (!raf) raf = requestAnimationFrame(() => { raf = null; fitTab(t); });
+      };
+      const up = () => {
+        window.removeEventListener('mousemove', move);
+        window.removeEventListener('mouseup', up);
+        fitTab(t);
+      };
+      window.addEventListener('mousemove', move);
+      window.addEventListener('mouseup', up);
+    });
+    t.panes[i].el.after(div);
+  }
+}
+function exitZoom(t) {
+  if (!t.zoom) return;
+  t.zoom = false;
+  t.paneEl.classList.remove('zoomed');
+  t.panes.forEach((p) => p.el.classList.remove('zoomed-cell'));
+  fitTab(t);
+}
+function toggleZoom() {
+  const t = activeTab;
+  if (!t || t.panes.length < 2) return;
+  if (t.zoom) { exitZoom(t); return; }
+  t.zoom = true;
+  t.paneEl.classList.add('zoomed');
+  t.panes.forEach((p) => p.el.classList.toggle('zoomed-cell', p === t.active));
+  fitTab(t);
+}
+function toggleBroadcast() {
+  const t = activeTab;
+  if (!t) return;
+  t.broadcast = !t.broadcast;
+  t.paneEl.classList.toggle('broadcast', t.broadcast);
+  renderFooter();
+}
 async function splitPane(dir) {
   const t = activeTab;
   if (!t || !ready) return;
   if (t.panes.length >= MAX_PANES) return;
   if (t.splitDir && t.splitDir !== dir) return; // v1: one direction per tab
+  exitZoom(t);
   const pane = await createPane(t, t.active?.cwd || null);
   if (!pane) return;
   t.splitDir = t.splitDir || dir;
   t.paneEl.classList.add('multi');
   t.paneEl.classList.toggle('split-column', t.splitDir === 'column');
   t.panes.push(pane);
+  syncDividers(t);
   setActivePane(t, pane);
   fitTab(t);
   refreshTab(t);
 }
 function closePane(tab, pane) {
+  exitZoom(tab);
   if (!pane.exited) invoke('pty_kill', { id: pane.id });
   pane.term.dispose();
   pane.el.remove();
@@ -651,8 +915,11 @@ function closePane(tab, pane) {
   if (!tab.panes.length) { removeTab(tab); return; }
   if (tab.panes.length === 1) {
     tab.splitDir = null;
-    tab.paneEl.classList.remove('multi', 'split-column');
+    tab.paneEl.classList.remove('multi', 'split-column', 'broadcast');
+    tab.broadcast = false;
+    tab.panes[0].el.style.flexGrow = '';
   }
+  syncDividers(tab);
   if (tab.active === pane) setActivePane(tab, tab.panes[Math.max(0, idx - 1)]);
   fitTab(tab);
   refreshTab(tab);
@@ -1005,7 +1272,7 @@ async function createTab(startCwd, content) {
   tabEl.append(dotEl, titleEl, closeEl, progEl);
 
   const tab = {
-    panes: [], active: null, splitDir: null,
+    panes: [], active: null, splitDir: null, zoom: false, broadcast: false,
     paneEl, tabEl, titleEl, progEl,
     startTime: Date.now(), stateSince: Date.now(),
     groupId: null, railDismissed: false,
@@ -1039,6 +1306,7 @@ function activateTab(tab) {
   const g = tabGroup(tab);
   if (g?.collapsed) { g.collapsed = false; restyleTabs(); } // activating expands
   activeTab = tab;
+  clearAttention(tab);
   for (const t of tabs) {
     const on = t === tab;
     t.paneEl.classList.toggle('hidden', !on);
@@ -1107,6 +1375,7 @@ function buildSession() {
     })),
     groups: [...groups.values()].map(({ id, name, color, collapsed }) => ({ id, name, color, collapsed })),
     active: Math.max(0, tabs.indexOf(activeTab)),
+    recentCmds: recentCmds.slice(0, 100),
   });
 }
 let persistTimer = null;
@@ -1143,6 +1412,7 @@ async function startTabs() {
     .filter((e) => e.panes.some((p) => p.cwd))
     .slice(0, MAX_RESTORE_TABS);
   if (!entries.length) { await createTab(); return; }
+  if (Array.isArray(saved?.recentCmds)) recentCmds = saved.recentCmds.filter((r) => r && r.cmd);
   for (const g of saved?.groups || []) {
     groups.set(g.id, { id: g.id, name: g.name || '', color: g.color, collapsed: !!g.collapsed, chipEl: null });
     groupCounter = Math.max(groupCounter, g.id);
@@ -1160,6 +1430,7 @@ async function startTabs() {
       t.splitDir = e.splitDir === 'column' ? 'column' : 'row';
       t.paneEl.classList.add('multi');
       t.paneEl.classList.toggle('split-column', t.splitDir === 'column');
+      syncDividers(t);
       setActivePane(t, t.panes[0]);
       fitTab(t);
     }
@@ -1302,6 +1573,24 @@ listen('api://request', async (e) => {
   invoke('api_respond', { id, data: JSON.stringify(res ?? { ok: true }) });
 });
 
+// --- Artifact diff overlay -----------------------------------------------------
+function showDiff(path, text) {
+  diffTitle.textContent = 'git diff · ' + (path.split('/').pop() || path);
+  diffBody.replaceChildren();
+  for (const line of text.split('\n')) {
+    const el = document.createElement('div');
+    el.textContent = line;
+    if (line.startsWith('+') && !line.startsWith('+++')) el.className = 'dl-add';
+    else if (line.startsWith('-') && !line.startsWith('---')) el.className = 'dl-del';
+    else if (line.startsWith('@@')) el.className = 'dl-hunk';
+    else if (line.startsWith('diff ') || line.startsWith('index ')) el.className = 'dl-meta';
+    diffBody.appendChild(el);
+  }
+  diffView.classList.remove('hidden');
+}
+function closeDiff() { diffView.classList.add('hidden'); activePane()?.term.focus(); }
+diffView.addEventListener('mousedown', (e) => { if (e.target === diffView) closeDiff(); });
+
 // --- Scrollback search (Cmd+F) ------------------------------------------------
 const FIND_DECOR = {
   matchBackground: '#3a4a6b', activeMatchBackground: '#6b5a9e',
@@ -1342,6 +1631,8 @@ function paletteActions() {
     { label: 'Close pane / tab', kbd: '⌘W', run: () => closeFocused() },
     { label: 'Split right', kbd: '⌘D', run: () => splitPane('row') },
     { label: 'Split down', kbd: '⇧⌘D', run: () => splitPane('column') },
+    { label: 'Zoom pane (toggle)', kbd: '⇧⌘↵', run: () => toggleZoom() },
+    { label: 'Broadcast input to all panes (toggle)', kbd: '⇧⌘B', run: () => toggleBroadcast() },
     { label: 'Next tab', kbd: '⇧⌘}', run: () => cycleTab(1) },
     { label: 'Previous tab', kbd: '⇧⌘{', run: () => cycleTab(-1) },
     { label: 'Mission control', kbd: '⌘E', run: () => toggleMission() },
@@ -1360,6 +1651,16 @@ function paletteActions() {
     acts.push({
       label: `Go to: ${t.titleEl.textContent}${t.active?.cwd ? ' — ' + tilde(t.active.cwd) : ''}`,
       kbd: '', run: () => activateTab(t),
+    });
+  }
+  for (const r of recentCmds.slice(0, 30)) {
+    acts.push({
+      label: `$ ${r.cmd}`,
+      kbd: 'run',
+      run: () => {
+        const pn = activePane();
+        if (pn && !pn.exited) invoke('pty_write', { id: pn.id, data: r.cmd + '\n' });
+      },
     });
   }
   return acts;
@@ -1491,7 +1792,8 @@ window.addEventListener('resize', () => { if (activeTab) fitTab(activeTab); });
 window.addEventListener('keydown', (e) => {
   if (!ready) return;
   if (e.key === 'Escape') {
-    if (!ctxMenu.classList.contains('hidden')) { e.preventDefault(); closeCtxMenu(); }
+    if (!diffView.classList.contains('hidden')) { e.preventDefault(); closeDiff(); }
+    else if (!ctxMenu.classList.contains('hidden')) { e.preventDefault(); closeCtxMenu(); }
     else if (!groupEditor.classList.contains('hidden')) { e.preventDefault(); closeGroupEditor(); }
     else if (!findBar.classList.contains('hidden')) { e.preventDefault(); closeFind(); }
     else if (!paletteEl.classList.contains('hidden')) { e.preventDefault(); closePalette(); }
@@ -1504,6 +1806,8 @@ window.addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
     if (k === 'a') { e.preventDefault(); togglePanel(); }
     else if (k === 'd') { e.preventDefault(); splitPane('column'); }
+    else if (k === 'b') { e.preventDefault(); toggleBroadcast(); }
+    else if (e.key === 'Enter') { e.preventDefault(); toggleZoom(); }
     else if (e.key === '{' || e.key === '[') { e.preventDefault(); cycleTab(-1); }
     else if (e.key === '}' || e.key === ']') { e.preventDefault(); cycleTab(1); }
     return;
