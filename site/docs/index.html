@@ -95,6 +95,10 @@
   }
   .note p { margin: 0; }
   hr { border: none; border-top: 1px solid rgba(22,26,44,0.08); margin: 40px 0; }
+  .latest { display: inline-block; font-family: var(--mono); font-size: 12.5px; color: var(--dim); background: rgba(130,80,223,0.08); border: 1px solid rgba(130,80,223,0.25); border-radius: 8px; padding: 7px 12px; margin-bottom: 14px; }
+  .latest strong { color: var(--violet); }
+  #changelog h3 { display: flex; align-items: center; gap: 10px; font-family: var(--mono); }
+  .cl-tag { font-family: -apple-system, sans-serif; font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--faint); border: 1px solid var(--stroke); border-radius: 999px; padding: 2px 9px; }
 </style>
 </head>
 <body>
@@ -117,6 +121,7 @@
     <div class="grp">Start</div>
     <a href="#install">Install</a>
     <a href="#tour">Interface tour</a>
+    <a href="#changelog">What’s new</a>
     <div class="grp">Working in PRISM</div>
     <a href="#tabs">Tabs &amp; groups</a>
     <a href="#splits">Split panes</a>
@@ -157,6 +162,41 @@
         <li><strong>The glow</strong>: while an agent in the active tab is generating, the window wears an animated gradient border. It stops when the agent goes quiet.</li>
         <li><strong>Footer</strong>: working directory, git branch, last command's exit status and duration, foreground process, and session uptime.</li>
         <li><strong>Artifacts rail</strong> (right): appears when an agent writes files. See <a href="#agents">Agent supervision</a>.</li>
+      </ul>
+    </section>
+
+    <section id="changelog">
+      <h2>What’s new</h2>
+      <div class="latest" id="latest">Latest release: <strong id="latest-ver">…</strong></div>
+      <p>PRISM updates itself. Install new versions from <strong>Settings → Updates</strong>. Recent releases:</p>
+
+      <h3>0.2.4 <span class="cl-tag">panes</span></h3>
+      <ul>
+        <li>Close just the focused split with <kbd>⇧⌘W</kbd> (never the whole tab).</li>
+        <li>Right-click a split pane to move it into its own tab, or close it.</li>
+      </ul>
+
+      <h3>0.2.3 <span class="cl-tag">auto-update</span></h3>
+      <ul>
+        <li>PRISM checks for new versions after launch and every few hours, notifies you, and shows a green dot on the settings gear.</li>
+        <li>Install updates from Settings → Updates or the command palette; the app verifies, swaps, and relaunches with your session intact.</li>
+      </ul>
+
+      <h3>0.2.0 <span class="cl-tag">universal + power features</span></h3>
+      <ul>
+        <li><strong>Universal binary</strong>: runs natively on Intel and Apple silicon.</li>
+        <li><strong>Needs-you notifications</strong>: when an agent finishes while you’re away, PRISM notifies you and badges the Dock.</li>
+        <li><strong>Semantic history</strong>: ⌘-click any printed file path to open it in your editor.</li>
+        <li><strong>Artifacts</strong>: Quick Look and a git-diff overlay per file.</li>
+        <li><strong>Splits</strong>: zoom a pane (<kbd>⇧⌘↵</kbd>), drag dividers to resize, broadcast input (<kbd>⇧⌘B</kbd>).</li>
+        <li><strong>Command history</strong> in the palette, and <strong>theme import</strong> for iTerm and Ghostty themes.</li>
+      </ul>
+
+      <h3>0.1.0 <span class="cl-tag">first release</span></h3>
+      <ul>
+        <li>The agent layer: work glow, tab states, the artifacts rail, and mission control.</li>
+        <li>Tabs with Chrome-style groups, drag to reorder and regroup, and rename.</li>
+        <li>Session restore with scrollback, the socket API and <code>prism</code> CLI, ten themes with light mode, scrollback search, automatic shell integration, and the global summon hotkey.</li>
       </ul>
     </section>
 
@@ -383,6 +423,15 @@
     }
   }, { rootMargin: '-15% 0px -70% 0px' });
   secs.forEach((s) => s && spy.observe(s));
+
+  // stamp the newest shipped version from the update feed
+  fetch('/updates/latest.json').then((r) => r.json()).then((m) => {
+    const el = document.getElementById('latest-ver');
+    if (el && m.version) el.textContent = 'v' + m.version;
+  }).catch(() => {
+    const el = document.getElementById('latest-ver');
+    if (el) el.textContent = 'v0.2.4';
+  });
 </script>
 </body>
 </html>
