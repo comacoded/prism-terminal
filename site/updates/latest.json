@@ -1,15 +1,15 @@
 {
-  "version": "0.2.3",
-  "notes": "Periodic update checks, update badge on the settings gear, palette install action, release tooling.",
-  "pub_date": "2026-07-07T18:39:23Z",
+  "version": "0.2.4",
+  "notes": "Close-split hotkey (Cmd+Shift+W), right-click a split pane to pop it into its own tab.",
+  "pub_date": "2026-07-07T19:07:24Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNXlndmtncXJnMVVRVVpxNU9EOHMwN1duTElVSFlpS3JzUmZkOWJaanZDRnFCMDIzcHg0MTZab2RVeUNGeHRLVTZ2QlJzdVVxczM2VGVWSlN5YlBmQmdJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzNDQ5NTYzCWZpbGU6UFJJU00uYXBwLnRhci5nego0UXBTYkdBTFU4WEtIWUorK2hPeVM4N1pTUi9WeEJ0djNqcUxuN0hwa2ViQkR4U3R2T3lXSG1HVmtrRUczTm53b2JqMWhBMVRpZFVkMUZOMFJDOXJCUT09Cg==",
-      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.2.3.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNTRvY3Qxa3BvM0V4eitKUG1Lb1d6RVcrUE5KNERuSHJVM0d4QXdaSlZsdDg5U2dKaXk5RElQeWJOMVBPbVVvL0lTTE9TdGFseHVObTRkZDR5QlJXeFF3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzNDUxMjQ0CWZpbGU6UFJJU00uYXBwLnRhci5negpCT0JsTUxWdXpvUndmNFhVMDI0Zy9RMkFpelhqbGZuTGpxRVptdlpCUmtGeTZhQ3RPek5GZkNiNldVeC8yU0dwdU9uR2lzTVNQZzIzLzBJMW1zYnpCdz09Cg==",
+      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.2.4.app.tar.gz"
     },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNXlndmtncXJnMVVRVVpxNU9EOHMwN1duTElVSFlpS3JzUmZkOWJaanZDRnFCMDIzcHg0MTZab2RVeUNGeHRLVTZ2QlJzdVVxczM2VGVWSlN5YlBmQmdJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzNDQ5NTYzCWZpbGU6UFJJU00uYXBwLnRhci5nego0UXBTYkdBTFU4WEtIWUorK2hPeVM4N1pTUi9WeEJ0djNqcUxuN0hwa2ViQkR4U3R2T3lXSG1HVmtrRUczTm53b2JqMWhBMVRpZFVkMUZOMFJDOXJCUT09Cg==",
-      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.2.3.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNTRvY3Qxa3BvM0V4eitKUG1Lb1d6RVcrUE5KNERuSHJVM0d4QXdaSlZsdDg5U2dKaXk5RElQeWJOMVBPbVVvL0lTTE9TdGFseHVObTRkZDR5QlJXeFF3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzNDUxMjQ0CWZpbGU6UFJJU00uYXBwLnRhci5negpCT0JsTUxWdXpvUndmNFhVMDI0Zy9RMkFpelhqbGZuTGpxRVptdlpCUmtGeTZhQ3RPek5GZkNiNldVeC8yU0dwdU9uR2lzTVNQZzIzLzBJMW1zYnpCdz09Cg==",
+      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.2.4.app.tar.gz"
     }
   }
 }

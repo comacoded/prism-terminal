@@ -216,7 +216,8 @@ let settings = { ...DEFAULT_SETTINGS };
 const HOTKEYS = [
   ['⌘T', 'New tab'], ['⌘W', 'Close pane / tab'],
   ['⌘D', 'Split right'], ['⇧⌘D', 'Split down'],
-  ['⇧⌘↵', 'Zoom pane'], ['⇧⌘B', 'Broadcast input'],
+  ['⇧⌘↵', 'Zoom pane'], ['⇧⌘B', 'Broadcast input'], ['⇧⌘W', 'Close split pane'],
+  ['right-click pane', 'Move to new tab'],
   ['⌘ click path', 'Open file in editor'],
   ['⇧⌘{  ⇧⌘}', 'Previous / next tab'], ['⌘1…9', 'Jump to tab'],
   ['⌘E', 'Mission control'], ['⌘F', 'Find in scrollback'],
@@ -845,7 +846,7 @@ async function createPane(tab, startCwd, content) {
   }
 
   const pane = {
-    id, term, fit, search, ser, el,
+    id, term, fit, search, ser, el, tab,
     exited: false, fgProcess: '', agentActive: false,
     cwd: startCwd || '', branch: '', burstActive: false, workSeen: 0,
     marks: [], cmdStart: null, lastCmd: null, artifacts: [], snapshot: '',
@@ -860,19 +861,28 @@ async function createPane(tab, startCwd, content) {
   });
   term.onData((d) => {
     invoke('pty_write', { id, data: d });
-    if (tab.broadcast && pane === tab.active) {
-      for (const p2 of tab.panes) {
+    const ot = pane.tab;
+    if (ot.broadcast && pane === ot.active) {
+      for (const p2 of ot.panes) {
         if (p2 !== pane && !p2.exited) invoke('pty_write', { id: p2.id, data: d });
       }
     }
   });
   term.onTitleChange((title) => {
-    if (!title || pane !== tab.active) return;
-    tab.autoTitle = title;
-    if (!tab.customTitle && !tab.renaming) tab.titleEl.textContent = title;
+    const ot = pane.tab;
+    if (!title || pane !== ot.active) return;
+    ot.autoTitle = title;
+    if (!ot.customTitle && !ot.renaming) ot.titleEl.textContent = title;
   });
   el.addEventListener('mousedown', () => {
-    if (tab === activeTab && tab.active !== pane) setActivePane(tab, pane);
+    if (pane.tab === activeTab && pane.tab.active !== pane) setActivePane(pane.tab, pane);
+  });
+  // right-click a split pane: move it out or close it
+  el.addEventListener('contextmenu', (e) => {
+    if (pane.tab.panes.length < 2) return; // single pane leaves right-click to the terminal
+    e.preventDefault();
+    e.stopPropagation();
+    openPaneMenu(pane, e.clientX, e.clientY);
   });
   return pane;
 }
@@ -1312,7 +1322,7 @@ window.addEventListener('mousedown', (e) => {
 }, true);
 
 // --- Tabs -------------------------------------------------------------------
-async function createTab(startCwd, content) {
+function newTabShell() {
   tabCounter += 1;
   const label = `Session ${tabCounter}`;
 
@@ -1335,16 +1345,8 @@ async function createTab(startCwd, content) {
     groupId: null, railDismissed: false,
     autoTitle: label, customTitle: null, renaming: false,
   };
-
-  const pane = await createPane(tab, startCwd ?? activePane()?.cwd ?? null, content);
-  if (!pane) { paneEl.remove(); return; }
-  tab.panes.push(pane);
-  tab.active = pane;
-  pane.el.classList.add('focused');
-
   tabs.push(tab);
   tabsEl.insertBefore(tabEl, newTabBtn); // the + button stays after the last tab
-  refreshTab(tab);
 
   tabEl.addEventListener('mousedown', (e) => {
     if (closeEl.contains(e.target) || tab.renaming) return;
@@ -1354,9 +1356,69 @@ async function createTab(startCwd, content) {
   closeEl.addEventListener('mousedown', (e) => { e.stopPropagation(); closeTab(tab); });
   tabEl.addEventListener('contextmenu', (e) => { e.preventDefault(); openTabMenu(tab, e.clientX, e.clientY); });
   tabEl.addEventListener('dblclick', (e) => { if (!closeEl.contains(e.target)) startRename(tab); });
+  return tab;
+}
 
+async function createTab(startCwd, content) {
+  const tab = newTabShell();
+  const pane = await createPane(tab, startCwd ?? activePane()?.cwd ?? null, content);
+  if (!pane) {
+    tab.paneEl.remove();
+    tab.tabEl.remove();
+    const i = tabs.indexOf(tab);
+    if (i !== -1) tabs.splice(i, 1);
+    return;
+  }
+  tab.panes.push(pane);
+  tab.active = pane;
+  pane.el.classList.add('focused');
+  refreshTab(tab);
   activateTab(tab);
   persistSession();
+}
+
+// Pop a split pane out into its own standalone tab.
+function movePaneToNewTab(srcTab, pane) {
+  if (!srcTab || srcTab.panes.length < 2) return;
+  exitZoom(srcTab);
+  closeCtxMenu();
+  srcTab.panes = srcTab.panes.filter((p) => p !== pane);
+  const dst = newTabShell();
+  pane.tab = dst;
+  pane.el.classList.remove('zoomed-cell');
+  pane.el.style.flexGrow = '';
+  dst.paneEl.appendChild(pane.el); // appendChild moves the node + its terminal
+  dst.panes.push(pane);
+  dst.active = pane;
+  pane.el.classList.add('focused');
+  refreshTab(dst);
+  // repair the source tab
+  if (srcTab.panes.length === 1) {
+    srcTab.splitDir = null;
+    srcTab.paneEl.classList.remove('multi', 'split-column', 'broadcast');
+    srcTab.broadcast = false;
+    srcTab.panes[0].el.style.flexGrow = '';
+  }
+  syncDividers(srcTab);
+  if (!srcTab.panes.includes(srcTab.active)) setActivePane(srcTab, srcTab.panes[0]);
+  fitTab(srcTab); // still visible here, so it refits before we switch away
+  refreshTab(srcTab);
+  activateTab(dst);
+  persistSession();
+}
+
+// Right-click menu for a split pane.
+function openPaneMenu(pane, x, y) {
+  closeGroupEditor();
+  const tab = pane.tab;
+  if (tab.active !== pane) setActivePane(tab, pane);
+  ctxMenu.replaceChildren();
+  ctxMenu.appendChild(ctxItem('Move pane to new tab', () => movePaneToNewTab(tab, pane)));
+  ctxMenu.appendChild(ctxItem('Close pane', () => closePane(tab, pane)));
+  ctxMenu.classList.remove('hidden');
+  const w = ctxMenu.offsetWidth, h = ctxMenu.offsetHeight;
+  ctxMenu.style.left = `${Math.min(x, window.innerWidth - w - 8)}px`;
+  ctxMenu.style.top = `${Math.min(y, window.innerHeight - h - 8)}px`;
 }
 
 function activateTab(tab) {
@@ -1695,6 +1757,8 @@ function paletteActions() {
     { label: 'Split down', kbd: '⇧⌘D', run: () => splitPane('column') },
     { label: 'Zoom pane (toggle)', kbd: '⇧⌘↵', run: () => toggleZoom() },
     { label: 'Broadcast input to all panes (toggle)', kbd: '⇧⌘B', run: () => toggleBroadcast() },
+    { label: 'Close split pane', kbd: '⇧⌘W', run: () => { if (activeTab && activeTab.panes.length > 1) closePane(activeTab, activeTab.active); } },
+    { label: 'Move pane to new tab', kbd: '', run: () => { if (activeTab && activeTab.panes.length > 1) movePaneToNewTab(activeTab, activeTab.active); } },
     { label: 'Next tab', kbd: '⇧⌘}', run: () => cycleTab(1) },
     { label: 'Previous tab', kbd: '⇧⌘{', run: () => cycleTab(-1) },
     { label: 'Mission control', kbd: '⌘E', run: () => toggleMission() },
@@ -1870,6 +1934,7 @@ window.addEventListener('keydown', (e) => {
     if (k === 'a') { e.preventDefault(); togglePanel(); }
     else if (k === 'd') { e.preventDefault(); splitPane('column'); }
     else if (k === 'b') { e.preventDefault(); toggleBroadcast(); }
+    else if (k === 'w') { e.preventDefault(); if (activeTab && activeTab.panes.length > 1) closePane(activeTab, activeTab.active); }
     else if (e.key === 'Enter') { e.preventDefault(); toggleZoom(); }
     else if (e.key === '{' || e.key === '[') { e.preventDefault(); cycleTab(-1); }
     else if (e.key === '}' || e.key === ']') { e.preventDefault(); cycleTab(1); }
