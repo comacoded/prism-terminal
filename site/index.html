@@ -343,8 +343,10 @@
 <div class="marquee rv">
   <div class="marquee-in" id="mq">
     <span>tabs</span><span>tab groups</span><span>split panes</span><span>mission control</span>
-    <span>agent glow</span><span>artifacts</span><span>session restore</span><span>socket API</span>
-    <span>themes</span><span>light mode</span><span>search</span><span>notifications</span>
+    <span>agent glow</span><span>needs-you alerts</span><span>artifacts</span><span>quick look</span>
+    <span>git diff</span><span>cmd-click paths</span><span>command history</span><span>session restore</span>
+    <span>socket API</span><span>themes</span><span>theme import</span><span>pane zoom</span>
+    <span>broadcast input</span><span>light mode</span><span>search</span>
   </div>
 </div>
 
@@ -373,8 +375,8 @@
         <p>One keystroke shows every tab as a live card: agent state and how long it's been there, working directory, git branch, and the last files touched. Click to jump in.</p>
         <ul>
           <li>working / waiting / idle states per session</li>
-          <li>tab groups with names and colors, Chrome-style</li>
-          <li>drag tabs between groups; click a chip to collapse a group</li>
+          <li>an agent finishing while you're away notifies you and badges the Dock</li>
+          <li>tab groups with names and colors; drag between them, collapse into chips</li>
         </ul>
       </div>
       <div class="shot rv d1"><img src="assets/mission.png" loading="lazy" alt="Mission control: a grid of session cards showing agent states, branches, and touched files" /></div>
@@ -386,9 +388,9 @@
         <h2>Agent on the left.<br />Proof on the right.</h2>
         <p>Split panes with independent shells and per-pane agent detection. The footer tracks your working directory, branch, and every command's exit status and duration through real shell integration, injected automatically.</p>
         <ul>
-          <li>⌘D split right, ⇧⌘D split down</li>
-          <li>jump between prompts with ⌘↑ ⌘↓</li>
-          <li>commands over 15s notify you when you're away</li>
+          <li>⌘D split right, ⇧⌘D split down, drag dividers to resize</li>
+          <li>⇧⌘↵ zooms a pane; ⇧⌘B broadcasts input to every pane</li>
+          <li>⌘-click any printed path to open it in your editor</li>
         </ul>
       </div>
       <div class="shot rv d1"><img src="assets/splits.png" loading="lazy" alt="Split panes with a Claude session on the left and test output on the right, footer telemetry visible" /></div>
@@ -398,7 +400,7 @@
       <div class="copy rv">
         <div class="kicker">Make it yours</div>
         <h2>Ten themes over real glass.</h2>
-        <p>Native macOS vibrancy with a tint you control. Pick themes from live preview cards: PRISM, Dark, Light, Dracula, Cyber Wave, Nord, One Dark, Solarized, Gruvbox, Catppuccin. Light mode restyles the entire chrome.</p>
+        <p>Native macOS vibrancy with a tint you control. Ten built-in themes on live preview cards, plus import for any iTerm .itermcolors or Ghostty theme file. Light mode restyles the entire chrome.</p>
       </div>
       <div class="shot rv d1"><img src="assets/themes.png" loading="lazy" alt="Settings with Warp-style theme preview cards" /></div>
     </div>
