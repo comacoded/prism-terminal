@@ -33,7 +33,10 @@
       "icons/icon.png",
       "icons/icon.icns"
     ],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "macOS": {
+      "signingIdentity": "PRISM Dev"
+    }
   },
   "plugins": {
     "updater": {
