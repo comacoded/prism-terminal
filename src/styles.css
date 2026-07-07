@@ -198,6 +198,12 @@ body.tab-dragging .tab { transition: none; } /* no width easing while slots shif
 }
 #new-tab:hover { background: var(--tab-hover); color: var(--fg); }
 #title-actions button:hover { background: rgba(255,255,255,0.1); }
+#toggle-settings { position: relative; }
+#toggle-settings.update-avail::after {
+  content: ''; position: absolute; top: -3px; right: -3px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #7ee787; border: 1.5px solid rgba(13,15,21,0.9);
+}
 
 /* --- Panes + terminals ---------------------------------------------------- */
 #main { display: flex; min-height: 0; }

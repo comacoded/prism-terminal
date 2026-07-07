@@ -346,6 +346,16 @@ function adjustFont(delta) {
 }
 // --- Updates -------------------------------------------------------------------
 let pendingUpdate = null;
+let notifiedVersion = null;
+async function installPendingUpdate() {
+  if (!pendingUpdate) return;
+  setUpdate.textContent = `Downloading v${pendingUpdate.version}…`;
+  try {
+    await invoke('install_update'); // relaunches on success
+  } catch {
+    setUpdate.textContent = 'Update failed — retry';
+  }
+}
 async function checkForUpdates(manual) {
   if (manual) setUpdate.textContent = 'Checking…';
   try {
@@ -354,7 +364,9 @@ async function checkForUpdates(manual) {
       pendingUpdate = u;
       setUpdate.textContent = `Install v${u.version} (restarts)`;
       setUpdate.classList.add('avail');
-      if (!manual) {
+      settingsBtn.classList.add('update-avail'); // green dot on the gear
+      if (!manual && notifiedVersion !== u.version) {
+        notifiedVersion = u.version;
         invoke('notify_user', { title: `PRISM v${u.version} available`, body: 'Install from Settings (⌘,)' });
       }
     } else if (manual) {
@@ -368,20 +380,13 @@ async function checkForUpdates(manual) {
     }
   }
 }
-setUpdate.addEventListener('mousedown', async (e) => {
+setUpdate.addEventListener('mousedown', (e) => {
   e.preventDefault();
-  if (pendingUpdate) {
-    setUpdate.textContent = `Downloading v${pendingUpdate.version}…`;
-    try {
-      await invoke('install_update'); // relaunches on success
-    } catch {
-      setUpdate.textContent = 'Update failed — retry';
-    }
-    return;
-  }
-  checkForUpdates(true);
+  if (pendingUpdate) installPendingUpdate();
+  else checkForUpdates(true);
 });
 setTimeout(() => checkForUpdates(false), 8000); // quiet check shortly after launch
+setInterval(() => checkForUpdates(false), 4 * 60 * 60 * 1000); // and every 4h while running
 
 function toggleSettings() {
   settingsEl.classList.toggle('hidden');
@@ -1697,6 +1702,7 @@ function paletteActions() {
     { label: 'Clear terminal', kbd: '⌘K', run: () => activePane()?.term.clear() },
     { label: 'Toggle artifacts panel', kbd: '⇧⌘A', run: () => togglePanel() },
     { label: 'Settings', kbd: '⌘,', run: () => toggleSettings() },
+    ...(pendingUpdate ? [{ label: `Install update v${pendingUpdate.version} (restarts)`, kbd: '', run: () => installPendingUpdate() }] : []),
     { label: 'Copy last command output', kbd: '', run: () => copyLastOutput() },
     { label: 'Jump to previous prompt', kbd: '⌘↑', run: () => jumpPrompt(-1) },
     { label: 'Jump to next prompt', kbd: '⌘↓', run: () => jumpPrompt(1) },
