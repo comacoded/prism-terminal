@@ -1,15 +1,15 @@
 {
-  "version": "0.2.4",
-  "notes": "Close-split hotkey (Cmd+Shift+W), right-click a split pane to pop it into its own tab.",
-  "pub_date": "2026-07-07T19:07:24Z",
+  "version": "0.2.5",
+  "notes": "Stable code signing so macOS remembers folder permissions across launches.",
+  "pub_date": "2026-07-07T19:42:07Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNTRvY3Qxa3BvM0V4eitKUG1Lb1d6RVcrUE5KNERuSHJVM0d4QXdaSlZsdDg5U2dKaXk5RElQeWJOMVBPbVVvL0lTTE9TdGFseHVObTRkZDR5QlJXeFF3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzNDUxMjQ0CWZpbGU6UFJJU00uYXBwLnRhci5negpCT0JsTUxWdXpvUndmNFhVMDI0Zy9RMkFpelhqbGZuTGpxRVptdlpCUmtGeTZhQ3RPek5GZkNiNldVeC8yU0dwdU9uR2lzTVNQZzIzLzBJMW1zYnpCdz09Cg==",
-      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.2.4.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNXhYNW1EY2JsdHJ4eUtjbVJuVGFkVzV3UVJ6YzlUajdhVWVmTit1emkvUmZHNmhMMnZQTDh6TUhvSjNVcFpqZTNxeUp6VEZNUUxrdkFkWUM1V0tsbVFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzNDUzMzI3CWZpbGU6UFJJU00uYXBwLnRhci5negpuUitRWnczYWl0ZXNkNU16N28rWnR1L3phTDRqWkc5Vjd6VHU1ZmJxNFZGSFBzNGQwUGxPV2F6S1NmZHIydjJRbGJmQWp6by9ES0F0bTV1SEZTSkJDZz09Cg==",
+      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.2.5.app.tar.gz"
     },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNTRvY3Qxa3BvM0V4eitKUG1Lb1d6RVcrUE5KNERuSHJVM0d4QXdaSlZsdDg5U2dKaXk5RElQeWJOMVBPbVVvL0lTTE9TdGFseHVObTRkZDR5QlJXeFF3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzNDUxMjQ0CWZpbGU6UFJJU00uYXBwLnRhci5negpCT0JsTUxWdXpvUndmNFhVMDI0Zy9RMkFpelhqbGZuTGpxRVptdlpCUmtGeTZhQ3RPek5GZkNiNldVeC8yU0dwdU9uR2lzTVNQZzIzLzBJMW1zYnpCdz09Cg==",
-      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.2.4.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNXhYNW1EY2JsdHJ4eUtjbVJuVGFkVzV3UVJ6YzlUajdhVWVmTit1emkvUmZHNmhMMnZQTDh6TUhvSjNVcFpqZTNxeUp6VEZNUUxrdkFkWUM1V0tsbVFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzNDUzMzI3CWZpbGU6UFJJU00uYXBwLnRhci5negpuUitRWnczYWl0ZXNkNU16N28rWnR1L3phTDRqWkc5Vjd6VHU1ZmJxNFZGSFBzNGQwUGxPV2F6S1NmZHIydjJRbGJmQWp6by9ES0F0bTV1SEZTSkJDZz09Cg==",
+      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.2.5.app.tar.gz"
     }
   }
 }
