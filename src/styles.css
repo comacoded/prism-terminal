@@ -318,15 +318,20 @@ body.panel-open #artifacts { width: 300px; }
   font: 11.5px 'JetBrains Mono', monospace; outline: none;
 }
 .set-keys-head { margin-top: 16px; }
+/* Primer-style shortcut rows: each key gets its own readable kbd chip. */
 .set-key {
-  display: flex; justify-content: space-between; align-items: center; gap: 10px;
-  padding: 4px 0; font-size: 11px; color: var(--fg-dim);
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 7px 0; font-size: 12.5px; color: var(--fg-dim);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
 }
+.set-key:last-child { border-bottom: none; }
+.set-key .keys { display: flex; gap: 5px; flex: none; }
 .set-key kbd {
-  flex: none; font: 10.5px 'JetBrains Mono', monospace;
-  padding: 2px 6px; border: 1px solid var(--stroke); border-radius: 5px;
-  background: rgba(255,255,255,0.05); color: var(--fg);
+  font: 12px/1 'JetBrains Mono', monospace; letter-spacing: 0.12em;
+  padding: 5px 8px 4px 9px; border: 1px solid var(--stroke); border-radius: 6px;
+  background: rgba(255,255,255,0.06); color: var(--fg);
 }
+body.light .set-key { border-bottom-color: rgba(0,0,0,0.06); }
 #settings.hidden { display: none; }
 /* Primer-informed: semibold section headers, 8px rhythm, focus rings. */
 .set-head { font-size: 12px; font-weight: 700; color: var(--fg); margin-bottom: 10px; }
@@ -370,6 +375,16 @@ body.panel-open #artifacts { width: 300px; }
   font: 11.5px 'JetBrains Mono', monospace; cursor: default;
 }
 #set-import:hover { background: rgba(255,255,255,0.1); }
+#set-update {
+  width: 100%; padding: 6px 0;
+  border: 1px solid var(--stroke); border-radius: 8px;
+  background: rgba(255,255,255,0.05); color: var(--fg);
+  font: 11.5px 'JetBrains Mono', monospace; cursor: default;
+}
+#set-update:hover { background: rgba(255,255,255,0.1); }
+#set-update.avail { border-color: rgba(126,231,135,0.5); color: #7ee787; }
+body.light #set-update { background: rgba(0,0,0,0.04); }
+body.light #set-update.avail { color: #1a7f37; border-color: rgba(26,127,55,0.4); }
 body.light #set-import { background: rgba(0,0,0,0.04); }
 .set-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
 .set-label { flex: none; width: 92px; font-size: 11.5px; color: var(--fg-dim); }

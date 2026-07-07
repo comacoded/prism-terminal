@@ -149,6 +149,8 @@ const setKeys = document.getElementById('set-keys');
 const setEditor = document.getElementById('set-editor');
 const setImport = document.getElementById('set-import');
 const setImportFile = document.getElementById('set-import-file');
+const setVersion = document.getElementById('set-version');
+const setUpdate = document.getElementById('set-update');
 const diffView = document.getElementById('diff-view');
 const diffTitle = document.getElementById('diff-title');
 const diffBody = document.getElementById('diff-body');
@@ -312,6 +314,7 @@ function buildThemeCards() {
   }
 }
 function loadSettings() {
+  invoke('app_version').then((v) => { setVersion.textContent = 'PRISM ' + v; }).catch(() => {});
   try { settings = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem('prism.settings') || '{}') }; } catch {}
   if (!allThemes()[settings.theme]) settings.theme = 'prism';
   buildThemeCards();
@@ -320,9 +323,17 @@ function loadSettings() {
     row.className = 'set-key';
     const l = document.createElement('span');
     l.textContent = label;
-    const kbd = document.createElement('kbd');
-    kbd.textContent = keys;
-    row.append(l, kbd);
+    const wrap = document.createElement('span');
+    wrap.className = 'keys';
+    for (const token of keys.split(/\s{2,}/)) {
+      const kbd = document.createElement('kbd');
+      // space out modifier runs like ⇧⌘D so each symbol reads separately
+      kbd.textContent = /^[⌘⇧⌃⌥]/.test(token) && token.length <= 5
+        ? [...token].join(' ')
+        : token;
+      wrap.appendChild(kbd);
+    }
+    row.append(l, wrap);
     setKeys.appendChild(row);
   }
   applySettings(false);
@@ -333,6 +344,45 @@ function adjustFont(delta) {
     : Math.min(20, Math.max(10, settings.fontSize + delta));
   applySettings(true);
 }
+// --- Updates -------------------------------------------------------------------
+let pendingUpdate = null;
+async function checkForUpdates(manual) {
+  if (manual) setUpdate.textContent = 'Checking…';
+  try {
+    const u = await invoke('check_update');
+    if (u) {
+      pendingUpdate = u;
+      setUpdate.textContent = `Install v${u.version} (restarts)`;
+      setUpdate.classList.add('avail');
+      if (!manual) {
+        invoke('notify_user', { title: `PRISM v${u.version} available`, body: 'Install from Settings (⌘,)' });
+      }
+    } else if (manual) {
+      setUpdate.textContent = 'Up to date ✓';
+      setTimeout(() => { if (!pendingUpdate) setUpdate.textContent = 'Check for updates'; }, 2500);
+    }
+  } catch (err) {
+    if (manual) {
+      setUpdate.textContent = 'Check failed — retry';
+      setTimeout(() => { if (!pendingUpdate) setUpdate.textContent = 'Check for updates'; }, 3000);
+    }
+  }
+}
+setUpdate.addEventListener('mousedown', async (e) => {
+  e.preventDefault();
+  if (pendingUpdate) {
+    setUpdate.textContent = `Downloading v${pendingUpdate.version}…`;
+    try {
+      await invoke('install_update'); // relaunches on success
+    } catch {
+      setUpdate.textContent = 'Update failed — retry';
+    }
+    return;
+  }
+  checkForUpdates(true);
+});
+setTimeout(() => checkForUpdates(false), 8000); // quiet check shortly after launch
+
 function toggleSettings() {
   settingsEl.classList.toggle('hidden');
   if (settingsEl.classList.contains('hidden')) activePane()?.term.focus();
@@ -1249,6 +1299,8 @@ function openTabMenu(tab, x, y) {
 }
 function closeCtxMenu() { ctxMenu.classList.add('hidden'); }
 window.addEventListener('mousedown', (e) => {
+  if (!settingsEl.classList.contains('hidden') && !settingsEl.contains(e.target)
+      && !settingsBtn.contains(e.target)) toggleSettings();
   if (!ctxMenu.classList.contains('hidden') && !ctxMenu.contains(e.target)) closeCtxMenu();
   if (!groupEditor.classList.contains('hidden') && !groupEditor.contains(e.target)
       && !(editingGroup?.chipEl?.contains(e.target))) closeGroupEditor();
@@ -1560,6 +1612,11 @@ async function handleApi(req) {
     }
     case 'notify':
       invoke('notify_user', { title: String(req.title || 'PRISM'), body: String(req.body || '') });
+      return { ok: true };
+    case 'check-update':
+      return { update: await invoke('check_update') };
+    case 'install-update':
+      await invoke('install_update'); // app restarts if this succeeds
       return { ok: true };
     default:
       return { error: 'unknown cmd', cmds: ['list', 'new-tab', 'split', 'send', 'read', 'activate', 'notify'] };

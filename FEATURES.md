@@ -97,6 +97,11 @@ rendering, portable-pty, zsh shell integration injected via ZDOTDIR.
   at the cursor.
 - **Global summon.** Ctrl+` toggles PRISM from anywhere in macOS
   (quick-terminal style).
+- **Self-updating.** PRISM checks its update feed after launch and notifies
+  when a new version exists; Settings → Updates installs the signed build
+  and relaunches with the session intact (session restore covers the
+  restart). Also drivable via the socket API (check-update /
+  install-update).
 - **Drag to reorder and regroup.** Drag tabs to rearrange them; drop a tab
   between two tabs of a group (or onto the group's chip) to join that group,
   drag it out to leave. A drop indicator marks the target slot.

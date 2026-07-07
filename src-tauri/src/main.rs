@@ -493,6 +493,40 @@ fn set_badge(app: tauri::AppHandle, count: i64) {
 }
 
 #[tauri::command]
+fn app_version() -> String {
+    env!("CARGO_PKG_VERSION").into()
+}
+
+/// Ask the update endpoint whether a newer build exists.
+#[tauri::command]
+async fn check_update(app: tauri::AppHandle) -> Result<Option<serde_json::Value>, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    match updater.check().await.map_err(|e| e.to_string())? {
+        Some(u) => Ok(Some(serde_json::json!({
+            "version": u.version,
+            "notes": u.body,
+        }))),
+        None => Ok(None),
+    }
+}
+
+/// Download, verify, swap the app bundle, and relaunch.
+#[tauri::command]
+async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    let Some(update) = updater.check().await.map_err(|e| e.to_string())? else {
+        return Err("no update available".into());
+    };
+    update
+        .download_and_install(|_, _| {}, || {})
+        .await
+        .map_err(|e| e.to_string())?;
+    app.restart();
+}
+
+#[tauri::command]
 fn notify_user(title: String, body: String) {
     let script = format!(
         "display notification \"{}\" with title \"{}\"",
@@ -723,6 +757,7 @@ fn main() {
                 })
                 .build(),
         )
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             app_home,
             pty_spawn,
@@ -739,7 +774,10 @@ fn main() {
             open_url,
             session_save,
             session_load,
-            api_respond
+            api_respond,
+            app_version,
+            check_update,
+            install_update
         ])
         .setup(move |app| {
             let window = app.get_webview_window("main").unwrap();
