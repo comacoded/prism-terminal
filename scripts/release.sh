@@ -33,6 +33,18 @@ export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
 npx tauri build --target universal-apple-darwin
 
 BUNDLE="src-tauri/target/universal-apple-darwin/release/bundle"
+DMG="$BUNDLE/dmg/PRISM_${VER}_universal.dmg"
+
+# Notarize the DMG if credentials are set up (a keychain profile named
+# "prism-notary", created once with: xcrun notarytool store-credentials).
+# Direct downloads then open with no Gatekeeper warning.
+if xcrun notarytool history --keychain-profile prism-notary >/dev/null 2>&1; then
+  echo "── notarize + staple the DMG"
+  xcrun notarytool submit "$DMG" --keychain-profile prism-notary --wait
+  xcrun stapler staple "$DMG"
+else
+  echo "── notarization skipped (no 'prism-notary' credentials yet; DMG is signed but not notarized)"
+fi
 
 echo "── 3/5 stage update feed"
 mkdir -p site/updates

@@ -35,7 +35,7 @@
     ],
     "createUpdaterArtifacts": true,
     "macOS": {
-      "signingIdentity": "PRISM Dev"
+      "signingIdentity": "Developer ID Application: Nicholas Coma (8XH2HYXP28)"
     }
   },
   "plugins": {
