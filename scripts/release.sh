@@ -46,6 +46,11 @@ else
   echo "── notarization skipped (no 'prism-notary' credentials yet; DMG is signed but not notarized)"
 fi
 
+echo "── stage download DMG"
+mkdir -p site/download
+cp "$DMG" site/download/PRISM.dmg
+cp "$DMG" "site/download/PRISM_${VER}_universal.dmg"
+
 echo "── 3/5 stage update feed"
 mkdir -p site/updates
 rm -f site/updates/PRISM_*.app.tar.gz

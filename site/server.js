@@ -14,6 +14,7 @@ const MIME = {
   '.css': 'text/css',
   '.js': 'text/javascript',
   '.json': 'application/json',
+  '.dmg': 'application/x-apple-diskimage',
 };
 
 http.createServer((req, res) => {
