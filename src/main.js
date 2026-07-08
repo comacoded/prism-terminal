@@ -795,7 +795,7 @@ function hookPathLinks(pane) {
 }
 
 // --- Panes (splits) -----------------------------------------------------------
-async function createPane(tab, startCwd, content) {
+async function createPane(tab, startCwd) {
   const el = document.createElement('div');
   el.className = 'split-cell';
   const termEl = document.createElement('div');
@@ -814,10 +814,8 @@ async function createPane(tab, startCwd, content) {
   });
   const fit = new FitAddon.FitAddon();
   const search = new SearchAddon.SearchAddon();
-  const ser = new SerializeAddon.SerializeAddon();
   term.loadAddon(fit);
   term.loadAddon(search);
-  term.loadAddon(ser);
   term.loadAddon(new ClipboardAddon.ClipboardAddon()); // OSC 52: remote/tmux copy
   term.loadAddon(new ImageAddon.ImageAddon()); // sixel + iTerm inline images
   term.loadAddon(new UnicodeGraphemesAddon.UnicodeGraphemesAddon());
@@ -830,10 +828,6 @@ async function createPane(tab, startCwd, content) {
     term.loadAddon(webgl);
   } catch { /* DOM renderer fallback */ }
   fit.fit();
-  if (content) {
-    term.write(content);
-    term.write('\r\n\x1b[0m\x1b[2m── restored ──\x1b[0m\r\n');
-  }
 
   let id;
   try {
@@ -846,10 +840,10 @@ async function createPane(tab, startCwd, content) {
   }
 
   const pane = {
-    id, term, fit, search, ser, el, tab,
+    id, term, fit, search, el, tab,
     exited: false, fgProcess: '', agentActive: false,
     cwd: startCwd || '', branch: '', burstActive: false, workSeen: 0,
-    marks: [], cmdStart: null, lastCmd: null, artifacts: [], snapshot: '',
+    marks: [], cmdStart: null, lastCmd: null, artifacts: [],
   };
   hookPromptMarks(pane);
   hookAppProtocols(tab, pane);
@@ -1359,9 +1353,9 @@ function newTabShell() {
   return tab;
 }
 
-async function createTab(startCwd, content) {
+async function createTab(startCwd) {
   const tab = newTabShell();
-  const pane = await createPane(tab, startCwd ?? activePane()?.cwd ?? null, content);
+  const pane = await createPane(tab, startCwd ?? activePane()?.cwd ?? null);
   if (!pane) {
     tab.paneEl.remove();
     tab.tabEl.remove();
@@ -1480,17 +1474,15 @@ function closeTab(tab) {
 }
 
 // --- Session restore (tabs, splits, and serialized scrollback, on disk) --------
-const SNAPSHOT_LINES = 1000; // scrollback lines preserved per pane
-function snapshotPanes() {
-  forEachPane((p) => {
-    try { p.snapshot = p.ser.serialize({ scrollback: SNAPSHOT_LINES }); } catch {}
-  });
-}
+// Restore is structural only: tabs, splits, groups, names, and working
+// directories. We intentionally do NOT replay terminal contents — a saved
+// snapshot is a dead picture, not a live session, and full-screen agents
+// (Claude Code, vim) clear the screen on start anyway.
 function buildSession() {
   return JSON.stringify({
     tabs: tabs.map((t) => ({
       g: t.groupId, name: t.customTitle, splitDir: t.splitDir,
-      panes: t.panes.map((p) => ({ cwd: p.cwd || '', content: p.snapshot || '' })),
+      panes: t.panes.map((p) => ({ cwd: p.cwd || '' })),
     })),
     groups: [...groups.values()].map(({ id, name, color, collapsed }) => ({ id, name, color, collapsed })),
     active: Math.max(0, tabs.indexOf(activeTab)),
@@ -1505,15 +1497,7 @@ function persistSession() {
     invoke('session_save', { data: buildSession() }).catch(() => {});
   }, 400);
 }
-// Content snapshots run on a timer (serializing every pane on each keystroke
-// would be wasteful); on quit, at most this interval of scrollback is lost.
-setInterval(() => {
-  if (!ready) return;
-  snapshotPanes();
-  persistSession();
-}, 15000);
 window.addEventListener('beforeunload', () => {
-  snapshotPanes();
   invoke('session_save', { data: buildSession() }).catch(() => {});
 });
 async function startTabs() {
@@ -1527,7 +1511,7 @@ async function startTabs() {
     try { saved = JSON.parse(localStorage.getItem('prism.session')); } catch {}
   }
   const entries = (saved?.tabs || (saved?.cwds || []).map((cwd) => ({ cwd, g: null })))
-    .map((e) => ({ ...e, panes: e.panes?.length ? e.panes : [{ cwd: e.cwd || '', content: '' }] }))
+    .map((e) => ({ ...e, panes: e.panes?.length ? e.panes : [{ cwd: e.cwd || '' }] }))
     .filter((e) => e.panes.some((p) => p.cwd))
     .slice(0, MAX_RESTORE_TABS);
   if (!entries.length) { await createTab(); return; }
@@ -1538,11 +1522,11 @@ async function startTabs() {
   }
   for (const e of entries) {
     const panes = e.panes.slice(0, MAX_PANES);
-    await createTab(panes[0].cwd, panes[0].content || undefined);
+    await createTab(panes[0].cwd);
     const t = tabs[tabs.length - 1];
     if (!t) continue;
     for (const pe of panes.slice(1)) {
-      const p = await createPane(t, pe.cwd || null, pe.content || undefined);
+      const p = await createPane(t, pe.cwd || null);
       if (p) t.panes.push(p);
     }
     if (t.panes.length > 1) {

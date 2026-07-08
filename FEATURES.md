@@ -1,4 +1,4 @@
-# PRISM — Feature Reference
+# PRISM: Feature Reference
 
 PRISM is a macOS terminal built for supervising AI coding agents. It pairs a
 glass, native-vibrancy aesthetic with agent awareness no other terminal has:
@@ -69,11 +69,11 @@ rendering, portable-pty, zsh shell integration injected via ZDOTDIR.
   persist across launches.
 - **Iconography**: Phosphor icons throughout the chrome (single filled
   paths, crisp at any size).
-- **Session restore, contents included.** Relaunching PRISM brings back your
-  tabs, split layouts, working directories, groups, names, and each pane's
-  terminal contents (up to 1000 lines of scrollback per pane, snapshotted
-  every 15 seconds to disk), with a "── restored ──" divider before the
-  fresh prompt.
+- **Session restore.** Relaunching PRISM brings back your tabs, split
+  layouts, working directories, groups, and names, so your whole workspace
+  reopens in place with fresh prompts. (Terminal contents are not replayed:
+  a saved snapshot is a dead picture, not a live session, and full-screen
+  agents clear the screen on start anyway.)
 - **Socket API + `prism` CLI.** Every shell gets `$PRISM_SOCKET` (a Unix
   socket) and a `prism` command: `prism list` (tabs, panes, agent states),
   `prism new-tab [dir]`, `prism split [row|column]`, `prism read <pane>

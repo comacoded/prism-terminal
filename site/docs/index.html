@@ -170,6 +170,12 @@
       <div class="latest" id="latest">Latest release: <strong id="latest-ver">…</strong></div>
       <p>PRISM updates itself. Install new versions from <strong>Settings → Updates</strong>. Recent releases:</p>
 
+      <h3>0.2.7 <span class="cl-tag">refinement</span></h3>
+      <ul>
+        <li>Session restore now reopens your tabs, splits, groups, names, and directories with fresh prompts, and no longer replays old terminal output (which was misleading, especially with full-screen agents that clear the screen on start).</li>
+        <li>Signed and notarized with an Apple Developer ID: downloads open cleanly.</li>
+      </ul>
+
       <h3>0.2.4 <span class="cl-tag">panes</span></h3>
       <ul>
         <li>Close just the focused split with <kbd>⇧⌘W</kbd> (never the whole tab).</li>
@@ -245,8 +251,8 @@
 
     <section id="restore">
       <h2>Session restore</h2>
-      <p>Quitting PRISM loses nothing. On relaunch it restores your tabs, split layouts, groups, custom names, working directories, and <strong>the contents of every pane</strong> (up to 1000 lines of scrollback each), separated from the fresh prompt by a dim <code>── restored ──</code> divider.</p>
-      <p>Contents snapshot to disk every 15 seconds and on quit, so a hard kill can lose at most the last 15 seconds of scrollback. The session file lives in <code>~/Library/Application Support/io.nickcoma.prism.spike/session.json</code> and never leaves your Mac.</p>
+      <p>On relaunch PRISM reopens your workspace: tabs, split layouts, groups, custom names, and each pane's working directory, with fresh prompts ready to go, exactly like iTerm or Terminal reopening your windows.</p>
+      <p>It does not replay old terminal output. A saved snapshot is a dead picture rather than a live session, and full-screen agents (Claude Code, vim) clear the screen on launch regardless, so replaying it added confusion, not value. The session layout is stored in <code>~/Library/Application Support/io.nickcoma.prism.spike/session.json</code> and never leaves your Mac.</p>
     </section>
 
     <section id="themes">
