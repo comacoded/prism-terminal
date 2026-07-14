@@ -147,6 +147,7 @@ const setCursor = document.getElementById('set-cursor');
 const setBlink = document.getElementById('set-blink');
 const setKeys = document.getElementById('set-keys');
 const setEditor = document.getElementById('set-editor');
+const setFontFamily = document.getElementById('set-font-family');
 const setImport = document.getElementById('set-import');
 const setImportFile = document.getElementById('set-import-file');
 const setVersion = document.getElementById('set-version');
@@ -211,24 +212,179 @@ function copyText(text) {
 function activePane() { return activeTab?.active ?? null; }
 
 // --- Settings -----------------------------------------------------------------
-const DEFAULT_SETTINGS = { fontSize: 13.5, tint: 45, glow: true, theme: 'prism', cursor: 'bar', blink: true, editor: 'code', custom: [] };
+const DEFAULT_SETTINGS = { fontSize: 13.5, tint: 45, glow: true, theme: 'prism', cursor: 'bar', blink: true, editor: 'code', custom: [], keys: {}, font: 'jetbrains', summon: 'ctrl+`', userFonts: [] };
+// Bundled terminal fonts. Users can add their own: an imported font file
+// (stored in app data, loaded as a FontFace) or any installed system font
+// by family name. Those live in settings.userFonts as
+// { key, label, family, kind: 'file'|'system', file? }.
+const FONTS = {
+  jetbrains: { label: 'JetBrains Mono', family: 'JetBrains Mono', css: "'JetBrains Mono', Menlo, monospace" },
+  fira:      { label: 'Fira Code', family: 'Fira Code', css: "'Fira Code', 'JetBrains Mono', Menlo, monospace" },
+  iosevka:   { label: 'Iosevka', family: 'Iosevka', css: "'Iosevka', 'JetBrains Mono', Menlo, monospace" },
+  monocraft: { label: 'Monocraft', family: 'Monocraft', css: "'Monocraft', 'JetBrains Mono', Menlo, monospace" },
+};
+function allFonts() {
+  const merged = { ...FONTS };
+  for (const f of settings.userFonts || []) {
+    merged[f.key] = {
+      label: f.label, family: f.family, user: true,
+      css: `'${f.family.replace(/'/g, '')}', 'JetBrains Mono', Menlo, monospace`,
+    };
+  }
+  return merged;
+}
+function termFont() { return (allFonts()[settings.font] || FONTS.jetbrains).css; }
+async function preloadTermFont() {
+  const fam = (allFonts()[settings.font] || FONTS.jetbrains).family;
+  if (!fam) return;
+  try {
+    await Promise.all([
+      document.fonts.load(`400 14px "${fam}"`),
+      document.fonts.load(`700 14px "${fam}"`),
+    ]);
+  } catch {}
+}
+// Imported font files load once per launch, from app data over IPC.
+const loadedUserFonts = new Set();
+async function loadUserFontFiles() {
+  for (const f of settings.userFonts || []) {
+    if (f.kind !== 'file' || loadedUserFonts.has(f.key)) continue;
+    try {
+      const b64 = await invoke('font_load', { file: f.file });
+      const face = new FontFace(f.family, b64ToBytes(b64).buffer);
+      await face.load();
+      document.fonts.add(face);
+      loadedUserFonts.add(f.key);
+    } catch (err) {
+      console.error('user font failed to load:', f.label, err);
+    }
+  }
+}
+// Installed-font probe: a real family renders at a different width than the
+// generic fallback. (document.fonts.check lies for system fonts in WebKit.)
+function fontInstalled(family) {
+  const ctx = document.createElement('canvas').getContext('2d');
+  const probe = 'mmmmwwwwiiiil10O#@PRISM';
+  const widths = ['monospace', 'serif'].map((generic) => {
+    ctx.font = `16px ${generic}`;
+    const base = ctx.measureText(probe).width;
+    ctx.font = `16px "${family.replace(/"/g, '')}", ${generic}`;
+    return ctx.measureText(probe).width !== base;
+  });
+  return widths[0] || widths[1];
+}
 let settings = { ...DEFAULT_SETTINGS };
-const HOTKEYS = [
-  ['⌘T', 'New tab'], ['⌘W', 'Close pane / tab'],
-  ['⌘D', 'Split right'], ['⇧⌘D', 'Split down'],
-  ['⇧⌘↵', 'Zoom pane'], ['⇧⌘B', 'Broadcast input'], ['⇧⌘W', 'Close split pane'],
-  ['right-click pane', 'Move to new tab'],
+// Remappable actions: defaults here, user overrides live in settings.keys[id].
+const DEFAULT_KEYMAP = {
+  'new-tab':     { mods: 'meta', key: 't', label: 'New tab' },
+  'close':       { mods: 'meta', key: 'w', label: 'Close pane / tab' },
+  'split-right': { mods: 'meta', key: 'd', label: 'Split right' },
+  'split-down':  { mods: 'meta+shift', key: 'd', label: 'Split down' },
+  'zoom-pane':   { mods: 'meta+shift', key: 'enter', label: 'Zoom pane' },
+  'broadcast':   { mods: 'meta+shift', key: 'b', label: 'Broadcast input' },
+  'close-split': { mods: 'meta+shift', key: 'w', label: 'Close split pane' },
+  'prev-tab':    { mods: 'meta+shift', key: '{', label: 'Previous tab' },
+  'next-tab':    { mods: 'meta+shift', key: '}', label: 'Next tab' },
+  'mission':     { mods: 'meta', key: 'e', label: 'Mission control' },
+  'find':        { mods: 'meta', key: 'f', label: 'Find in scrollback' },
+  'palette':     { mods: 'meta', key: 'p', label: 'Command palette' },
+  'clear':       { mods: 'meta', key: 'k', label: 'Clear terminal' },
+  'prev-prompt': { mods: 'meta', key: 'arrowup', label: 'Previous prompt' },
+  'next-prompt': { mods: 'meta', key: 'arrowdown', label: 'Next prompt' },
+  'artifacts':   { mods: 'meta+shift', key: 'a', label: 'Artifacts rail' },
+  'settings':    { mods: 'meta', key: ',', label: 'Settings' },
+  'font-up':     { mods: 'meta', key: '=', label: 'Text size up' },
+  'font-down':   { mods: 'meta', key: '-', label: 'Text size down' },
+  'font-reset':  { mods: 'meta', key: '0', label: 'Reset text size' },
+};
+const ACTION_RUN = {
+  'new-tab': () => createTab(),
+  'close': () => closeFocused(),
+  'split-right': () => splitPane('row'),
+  'split-down': () => splitPane('column'),
+  'zoom-pane': () => toggleZoom(),
+  'broadcast': () => toggleBroadcast(),
+  'close-split': () => { if (activeTab && activeTab.panes.length > 1) closePane(activeTab, activeTab.active); },
+  'prev-tab': () => cycleTab(-1),
+  'next-tab': () => cycleTab(1),
+  'mission': () => toggleMission(),
+  'find': () => openFind(),
+  'palette': () => togglePalette(),
+  'clear': () => activePane()?.term.clear(),
+  'prev-prompt': () => jumpPrompt(-1),
+  'next-prompt': () => jumpPrompt(1),
+  'artifacts': () => togglePanel(),
+  'settings': () => toggleSettings(),
+  'font-up': () => adjustFont(0.5),
+  'font-down': () => adjustFont(-0.5),
+  'font-reset': () => adjustFont(0),
+};
+// Bindings the recorder can't change: mouse gestures and OS-level keys.
+const FIXED_KEYS = [
+  ['⌘1…9', 'Jump to tab'],
   ['⌘ click path', 'Open file in editor'],
-  ['⇧⌘{  ⇧⌘}', 'Previous / next tab'], ['⌘1…9', 'Jump to tab'],
-  ['⌘E', 'Mission control'], ['⌘F', 'Find in scrollback'],
-  ['⌘P', 'Command palette'], ['⌘K', 'Clear terminal'],
-  ['⌘↑  ⌘↓', 'Previous / next prompt'], ['⇧⌘A', 'Artifacts rail'],
-  ['⌘,', 'Settings'], ['⌘+  ⌘−  ⌘0', 'Text size / reset'],
-  ['⌃`', 'Summon PRISM (global)'], ['⌥ scroll', 'Fast scroll'],
+  ['⌥ scroll', 'Fast scroll'],
+  ['right-click pane', 'Move pane to new tab'],
   ['double-click tab', 'Rename tab'], ['right-click tab', 'Group / tab menu'],
   ['click chip', 'Collapse or expand group'], ['right-click chip', 'Edit group'],
   ['drag tab', 'Reorder; drop into a group to join'],
 ];
+function hotkeyOf(id) { return settings.keys[id] || DEFAULT_KEYMAP[id]; }
+function comboOf(e) {
+  const mods = [];
+  if (e.metaKey) mods.push('meta');
+  if (e.ctrlKey) mods.push('ctrl');
+  if (e.altKey) mods.push('alt');
+  if (e.shiftKey) mods.push('shift');
+  let key = e.key.toLowerCase();
+  if (key === '[') key = '{';
+  if (key === ']') key = '}';
+  if (key === '+') key = '=';
+  return { mods: mods.join('+'), key };
+}
+const MOD_GLYPH = { ctrl: '⌃', alt: '⌥', shift: '⇧', meta: '⌘' };
+const KEY_GLYPH = { enter: '↵', arrowup: '↑', arrowdown: '↓', arrowleft: '←', arrowright: '→', backspace: '⌫', tab: '⇥', ' ': 'space' };
+function fmtCombo(hk) {
+  const mods = ['ctrl', 'alt', 'shift', 'meta']
+    .filter((m) => hk.mods.split('+').includes(m))
+    .map((m) => MOD_GLYPH[m]);
+  const key = KEY_GLYPH[hk.key] || hk.key.toUpperCase();
+  return [...mods, key].join(' ');
+}
+function kbdLabel(id) { return fmtCombo(hotkeyOf(id)); }
+// OS-level summon shortcut: tauri-plugin-global-shortcut string format.
+function globalKeyFromEvent(e) {
+  const c = e.code;
+  if (/^Key[A-Z]$/.test(c)) return c.slice(3).toLowerCase();
+  if (/^Digit[0-9]$/.test(c)) return c.slice(5);
+  if (/^F[0-9]{1,2}$/.test(c)) return c.toLowerCase();
+  const map = {
+    Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']',
+    Backslash: '\\', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/',
+    Space: 'space', ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+    Enter: 'enter', Tab: 'tab',
+  };
+  return map[c] || null;
+}
+function globalShortcutFromEvent(e) {
+  const key = globalKeyFromEvent(e);
+  if (!key) return null;
+  const mods = [];
+  if (e.ctrlKey) mods.push('ctrl');
+  if (e.altKey) mods.push('alt');
+  if (e.shiftKey) mods.push('shift');
+  if (e.metaKey) mods.push('cmd');
+  if (!mods.length) return null;
+  return [...mods, key].join('+');
+}
+function fmtGlobalShortcut(str) {
+  const SYM = { ctrl: '⌃', alt: '⌥', shift: '⇧', cmd: '⌘', super: '⌘' };
+  const KEYS = { space: 'space', up: '↑', down: '↓', left: '←', right: '→', enter: '↵', tab: '⇥' };
+  return str.split('+').map((t) => SYM[t] || KEYS[t] || (t.length === 1 ? t.toUpperCase() : t)).join(' ');
+}
+async function applySummonShortcut(str) {
+  await invoke('set_summon_shortcut', { shortcut: str });
+}
 function forEachPane(fn) { for (const t of tabs) for (const p of t.panes) fn(p, t); }
 function applySettings(save) {
   const th = currentTheme();
@@ -238,6 +394,7 @@ function applySettings(save) {
     : `rgba(10, 11, 16, ${settings.tint / 100})`;
   document.body.classList.toggle('glow-off', !settings.glow);
   forEachPane((p) => {
+    p.term.options.fontFamily = termFont();
     p.term.options.fontSize = settings.fontSize;
     p.term.options.theme = termTheme();
     p.term.options.cursorStyle = settings.cursor;
@@ -248,10 +405,16 @@ function applySettings(save) {
   setFontVal.textContent = `${settings.fontSize}`;
   setTint.value = settings.tint;
   setTintVal.textContent = `${settings.tint}%`;
+  // WebKit has no native range progress fill; paint it via a CSS var.
+  for (const r of [setFont, setTint]) {
+    const pct = ((r.value - r.min) / (r.max - r.min)) * 100;
+    r.style.setProperty('--pct', `${pct}%`);
+  }
   setGlow.checked = settings.glow;
   setCursor.value = settings.cursor;
   setBlink.checked = settings.blink;
   setEditor.value = settings.editor;
+  setFontFamily.value = settings.font;
   setThemes.querySelectorAll('.theme-card').forEach((c) => {
     c.classList.toggle('sel', c.dataset.theme === settings.theme);
   });
@@ -314,29 +477,115 @@ function buildThemeCards() {
     setThemes.appendChild(card);
   }
 }
-function loadSettings() {
-  invoke('app_version').then((v) => { setVersion.textContent = 'PRISM ' + v; }).catch(() => {});
-  try { settings = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem('prism.settings') || '{}') }; } catch {}
-  if (!allThemes()[settings.theme]) settings.theme = 'prism';
-  buildThemeCards();
-  for (const [keys, label] of HOTKEYS) {
+let recordingId = null;
+let recordingBtn = null;
+function endRecord() {
+  recordingId = null;
+  recordingBtn = null;
+  renderHotkeys();
+}
+function beginRecord(id, btn) {
+  recordingId = id;
+  recordingBtn = btn;
+  btn.classList.add('rec');
+  btn.textContent = 'press keys…';
+}
+function flashRecord(msg) {
+  if (recordingBtn) recordingBtn.textContent = msg;
+}
+window.addEventListener('keydown', (e) => {
+  if (!recordingId) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (e.key === 'Escape') { endRecord(); return; }
+  if (['Meta', 'Shift', 'Control', 'Alt'].includes(e.key)) return;
+  if (recordingId === '__summon') {
+    const str = globalShortcutFromEvent(e);
+    if (!str) { flashRecord('add ⌘ ⌃ or ⌥'); return; }
+    applySummonShortcut(str)
+      .then(() => {
+        settings.summon = str;
+        applySettings(true);
+        endRecord();
+      })
+      .catch(() => flashRecord('not available'));
+    return;
+  }
+  const combo = comboOf(e);
+  if (!combo.mods || combo.mods === 'shift') { flashRecord('add ⌘ ⌃ or ⌥'); return; }
+  const clash = Object.keys(DEFAULT_KEYMAP).find((oid) => {
+    if (oid === recordingId) return false;
+    const hk = hotkeyOf(oid);
+    return hk.mods === combo.mods && hk.key === combo.key;
+  });
+  if (clash) { flashRecord(`used: ${DEFAULT_KEYMAP[clash].label}`); return; }
+  const def = DEFAULT_KEYMAP[recordingId];
+  if (def.mods === combo.mods && def.key === combo.key) delete settings.keys[recordingId];
+  else settings.keys[recordingId] = combo;
+  applySettings(true);
+  endRecord();
+}, true);
+function renderHotkeys() {
+  setKeys.replaceChildren();
+  for (const [id, def] of Object.entries(DEFAULT_KEYMAP)) {
     const row = document.createElement('div');
     row.className = 'set-key';
+    const l = document.createElement('span');
+    l.textContent = def.label;
+    const btn = document.createElement('button');
+    btn.className = 'key-btn' + (settings.keys[id] ? ' custom' : '');
+    btn.title = 'Click, then press the new shortcut (Esc cancels)';
+    btn.textContent = fmtCombo(hotkeyOf(id));
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (recordingBtn) endRecord();
+      beginRecord(id, btn);
+    });
+    row.append(l, btn);
+    setKeys.appendChild(row);
+  }
+  {
+    const row = document.createElement('div');
+    row.className = 'set-key';
+    const l = document.createElement('span');
+    l.textContent = 'Summon PRISM (global)';
+    const btn = document.createElement('button');
+    btn.className = 'key-btn' + (settings.summon !== DEFAULT_SETTINGS.summon ? ' custom' : '');
+    btn.title = 'Click, then press the new shortcut (Esc cancels)';
+    btn.textContent = fmtGlobalShortcut(settings.summon);
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (recordingBtn) endRecord();
+      beginRecord('__summon', btn);
+    });
+    row.append(l, btn);
+    setKeys.appendChild(row);
+  }
+  for (const [keys, label] of FIXED_KEYS) {
+    const row = document.createElement('div');
+    row.className = 'set-key fixed';
     const l = document.createElement('span');
     l.textContent = label;
     const wrap = document.createElement('span');
     wrap.className = 'keys';
-    for (const token of keys.split(/\s{2,}/)) {
-      const kbd = document.createElement('kbd');
-      // space out modifier runs like ⇧⌘D so each symbol reads separately
-      kbd.textContent = /^[⌘⇧⌃⌥]/.test(token) && token.length <= 5
-        ? [...token].join(' ')
-        : token;
-      wrap.appendChild(kbd);
-    }
+    const kbd = document.createElement('kbd');
+    kbd.textContent = /^[⌘⇧⌃⌥]/.test(keys) && keys.length <= 5 ? [...keys].join(' ') : keys;
+    wrap.appendChild(kbd);
     row.append(l, wrap);
     setKeys.appendChild(row);
   }
+}
+function loadSettings() {
+  invoke('app_version').then((v) => { setVersion.textContent = 'PRISM ' + v; }).catch(() => {});
+  try { settings = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem('prism.settings') || '{}') }; } catch {}
+  if (!allThemes()[settings.theme]) settings.theme = 'prism';
+  if (!allFonts()[settings.font]) settings.font = 'jetbrains';
+  buildThemeCards();
+  renderFontOptions();
+  renderUserFonts();
+  renderHotkeys();
   applySettings(false);
 }
 function adjustFont(delta) {
@@ -394,12 +643,180 @@ function toggleSettings() {
   if (settingsEl.classList.contains('hidden')) activePane()?.term.focus();
 }
 settingsBtn.addEventListener('mousedown', (e) => { e.preventDefault(); toggleSettings(); });
+// Modal chrome: sidebar nav switches panes, backdrop click closes, search filters nav.
+const setNavBtns = [...document.querySelectorAll('.set-nav')];
+function showSettingsPane(name) {
+  for (const b of setNavBtns) b.classList.toggle('sel', b.dataset.pane === name);
+  document.querySelectorAll('.set-section').forEach((s) => {
+    s.classList.toggle('hidden', s.dataset.pane !== name);
+  });
+}
+for (const b of setNavBtns) {
+  b.addEventListener('mousedown', (e) => { e.preventDefault(); showSettingsPane(b.dataset.pane); });
+}
+settingsEl.addEventListener('mousedown', (e) => { if (e.target === settingsEl) toggleSettings(); });
+document.getElementById('set-close').addEventListener('mousedown', (e) => { e.preventDefault(); toggleSettings(); });
+// Sidebar "Check for updates" mirrors the Updates pane button's label and state.
+const setUpdateSide = document.getElementById('set-update-side');
+new MutationObserver(() => {
+  setUpdateSide.textContent = setUpdate.textContent;
+  setUpdateSide.classList.toggle('avail', setUpdate.classList.contains('avail'));
+}).observe(setUpdate, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+setUpdateSide.addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  if (pendingUpdate) installPendingUpdate();
+  else checkForUpdates(true);
+});
+document.getElementById('set-keys-reset').addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  if (recordingBtn) endRecord();
+  settings.keys = {};
+  if (settings.summon !== DEFAULT_SETTINGS.summon) {
+    settings.summon = DEFAULT_SETTINGS.summon;
+    applySummonShortcut(settings.summon).catch(() => {});
+  }
+  applySettings(true);
+  renderHotkeys();
+});
+// Factory reset: wipe session + settings so tab numbering and state start fresh.
+const setAppReset = document.getElementById('set-app-reset');
+const APP_RESET_LABEL = setAppReset.textContent;
+let appResetArmed = false;
+setAppReset.addEventListener('mousedown', async (e) => {
+  e.preventDefault();
+  if (!appResetArmed) {
+    appResetArmed = true;
+    setAppReset.classList.add('armed');
+    setAppReset.textContent = 'Click again to erase session + settings';
+    setTimeout(() => {
+      appResetArmed = false;
+      setAppReset.classList.remove('armed');
+      setAppReset.textContent = APP_RESET_LABEL;
+    }, 4000);
+    return;
+  }
+  forEachPane((p) => { try { invoke('pty_kill', { id: p.id }); } catch {} });
+  try { localStorage.clear(); } catch {}
+  try { await invoke('session_save', { data: '' }); } catch {}
+  location.reload();
+});
+const setSearchInput = document.getElementById('set-search');
+setSearchInput.addEventListener('input', () => {
+  const q = setSearchInput.value.trim().toLowerCase();
+  for (const b of setNavBtns) {
+    b.style.display = !q || b.textContent.toLowerCase().includes(q) ? '' : 'none';
+  }
+});
 setFont.addEventListener('input', () => { settings.fontSize = parseFloat(setFont.value); applySettings(true); });
 setTint.addEventListener('input', () => { settings.tint = parseInt(setTint.value, 10); applySettings(true); });
 setGlow.addEventListener('change', () => { settings.glow = setGlow.checked; applySettings(true); });
 setCursor.addEventListener('change', () => { settings.cursor = setCursor.value; applySettings(true); });
 setBlink.addEventListener('change', () => { settings.blink = setBlink.checked; applySettings(true); });
 setEditor.addEventListener('change', () => { settings.editor = setEditor.value; applySettings(true); });
+setFontFamily.addEventListener('change', async () => {
+  settings.font = setFontFamily.value;
+  await preloadTermFont(); // metrics must come from the real font, not the fallback
+  applySettings(true);
+});
+
+// --- Custom fonts (Settings > Terminal) ----------------------------------------
+const setUserFonts = document.getElementById('set-user-fonts');
+const setFontAddFile = document.getElementById('set-font-add-file');
+const setFontFile = document.getElementById('set-font-file');
+const setFontSys = document.getElementById('set-font-sys');
+const setFontSysAdd = document.getElementById('set-font-sys-add');
+function renderFontOptions() {
+  setFontFamily.replaceChildren();
+  for (const [key, f] of Object.entries(allFonts())) {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = f.label;
+    setFontFamily.appendChild(opt);
+  }
+}
+function renderUserFonts() {
+  setUserFonts.replaceChildren();
+  for (const f of settings.userFonts || []) {
+    const row = document.createElement('div');
+    row.className = 'uf-row';
+    const name = document.createElement('span');
+    name.className = 'uf-name';
+    name.textContent = f.label;
+    name.style.fontFamily = `'${f.family.replace(/'/g, '')}', monospace`;
+    const kind = document.createElement('span');
+    kind.className = 'uf-kind';
+    kind.textContent = f.kind === 'file' ? 'imported' : 'system';
+    const del = document.createElement('button');
+    del.textContent = '×';
+    del.title = 'Remove this font';
+    del.addEventListener('mousedown', async (e) => {
+      e.preventDefault();
+      settings.userFonts = settings.userFonts.filter((u) => u.key !== f.key);
+      if (f.kind === 'file') invoke('font_delete', { file: f.file }).catch(() => {});
+      if (settings.font === f.key) settings.font = 'jetbrains';
+      renderFontOptions();
+      renderUserFonts();
+      await preloadTermFont();
+      applySettings(true);
+    });
+    row.append(name, kind, del);
+    setUserFonts.appendChild(row);
+  }
+}
+async function addUserFont(entry) {
+  settings.userFonts = (settings.userFonts || []).filter((u) => u.key !== entry.key);
+  settings.userFonts.push(entry);
+  settings.font = entry.key;
+  renderFontOptions();
+  renderUserFonts();
+  await loadUserFontFiles();
+  await preloadTermFont();
+  applySettings(true);
+}
+setFontAddFile.addEventListener('mousedown', (e) => { e.preventDefault(); setFontFile.click(); });
+setFontFile.addEventListener('change', () => {
+  const f = setFontFile.files?.[0];
+  setFontFile.value = '';
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const bytes = new Uint8Array(reader.result);
+    let b64 = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    b64 = btoa(b64);
+    try {
+      const stored = await invoke('font_save', { name: f.name, dataB64: b64 });
+      const family = f.name.replace(/\.(ttf|otf|woff2?)$/i, '');
+      await addUserFont({
+        key: 'userfont-' + family.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        label: family, family, kind: 'file', file: stored,
+      });
+    } catch (err) {
+      invoke('notify_user', { title: 'PRISM', body: 'Could not import that font: ' + err });
+    }
+  };
+  reader.readAsArrayBuffer(f);
+});
+setFontSysAdd.addEventListener('mousedown', async (e) => {
+  e.preventDefault();
+  const family = setFontSys.value.trim();
+  if (!family) return;
+  if (!fontInstalled(family)) {
+    invoke('notify_user', { title: 'PRISM', body: `"${family}" doesn't seem to be installed.` });
+    return;
+  }
+  setFontSys.value = '';
+  await addUserFont({
+    key: 'userfont-' + family.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    label: family, family, kind: 'system',
+  });
+});
+setFontSys.addEventListener('keydown', (e) => {
+  e.stopPropagation(); // plain typing must not trigger app hotkeys
+  if (e.key === 'Enter') setFontSysAdd.dispatchEvent(new MouseEvent('mousedown'));
+});
 
 // --- Theme import: iTerm .itermcolors (plist XML) or Ghostty key=value ---------
 function plistColor(dict) {
@@ -477,6 +894,8 @@ setImportFile.addEventListener('change', () => {
 document.getElementById('set-reset').addEventListener('mousedown', (e) => {
   e.preventDefault();
   settings = { ...DEFAULT_SETTINGS };
+  renderFontOptions();
+  renderUserFonts();
   applySettings(true);
 });
 
@@ -806,7 +1225,7 @@ async function createPane(tab, startCwd) {
   const term = new Terminal({
     allowProposedApi: true, // the unicode-graphemes addon registers via proposed API
     minimumContrastRatio: 4.5, // keep inverse/dim text readable on the translucent glass
-    allowTransparency: true, fontFamily: '"JetBrains Mono", Menlo, monospace',
+    allowTransparency: true, fontFamily: termFont(),
     fontSize: settings.fontSize, lineHeight: 1.2,
     cursorBlink: settings.blink, cursorStyle: settings.cursor,
     scrollback: 10000, theme: termTheme(),
@@ -848,6 +1267,7 @@ async function createPane(tab, startCwd) {
   hookPromptMarks(pane);
   hookAppProtocols(tab, pane);
   hookPathLinks(pane);
+  hookKitty(pane);
   search.onDidChangeResults(({ resultIndex, resultCount }) => {
     if (pane === activePane() && !findBar.classList.contains('hidden')) {
       findCount.textContent = resultCount ? `${resultIndex + 1}/${resultCount}` : '0/0';
@@ -1448,6 +1868,7 @@ function fitTab(tab) {
   for (const p of tab.panes) {
     try { p.fit.fit(); } catch { continue; }
     if (!p.exited) invoke('pty_resize', { id: p.id, rows: p.term.rows, cols: p.term.cols });
+    kittyRedraw(p); // cell metrics may have changed
   }
 }
 function removeTab(tab) {
@@ -1546,6 +1967,369 @@ async function startTabs() {
   if (tabs[idx]) activateTab(tabs[idx]);
 }
 
+// --- Kitty graphics protocol ---------------------------------------------------
+// xterm.js has no APC hook, so kitty commands (ESC _ G ... ESC \) are lifted
+// out of the PTY stream before it reaches the terminal. Each command's handler
+// runs from a write() callback, so the cursor is exactly where the stream put
+// it when the image lands. Images render on an overlay canvas anchored to
+// buffer markers, so they scroll with the scrollback. Video players
+// (mpv --vo=kitty, timg) work by rapidly replacing frames via a=T / a=d.
+const KITTY_STORE_MAX = 128 * 1024 * 1024; // decoded-pixel budget per pane
+const kittyLatin1 = new TextDecoder('latin1');
+
+function kittyInit(pane) {
+  pane.kitty = {
+    carry: null,      // bytes that might start/continue an APC across chunks
+    inApc: false,
+    apcBuf: '',
+    pending: null,    // chunked transmission in progress: { ctrl, parts }
+    images: new Map(), // id -> { bitmap, bytes, seq }
+    autoId: -1,        // ids for transmissions that didn't specify one
+    seq: 0,
+    placements: [],    // { imgId, marker, row, alt, col, cols, rows, sx, sy, sw, sh }
+    layer: null,
+    raf: 0,
+  };
+}
+
+// Split a PTY chunk into text segments and complete kitty APC payloads,
+// carrying partial escape sequences across chunk boundaries.
+function kittyScan(k, data) {
+  if (k.carry) {
+    const merged = new Uint8Array(k.carry.length + data.length);
+    merged.set(k.carry);
+    merged.set(data, k.carry.length);
+    data = merged;
+    k.carry = null;
+  }
+  const segs = [];
+  const len = data.length;
+  let i = 0;
+  let textStart = 0;
+  while (i < len) {
+    if (!k.inApc) {
+      if (data[i] !== 0x1b) { i++; continue; }
+      if (i + 2 >= len) {
+        // ESC (or ESC _) at the chunk edge: might be an APC start, hold it
+        if (i + 1 >= len || data[i + 1] === 0x5f) {
+          if (textStart < i) segs.push({ text: data.subarray(textStart, i) });
+          k.carry = data.slice(i);
+          return segs;
+        }
+        i++;
+        continue;
+      }
+      if (data[i + 1] === 0x5f && data[i + 2] === 0x47) { // ESC _ G
+        if (textStart < i) segs.push({ text: data.subarray(textStart, i) });
+        k.inApc = true;
+        k.apcBuf = '';
+        i += 3;
+        textStart = i;
+        continue;
+      }
+      i++;
+    } else {
+      if (data[i] !== 0x1b) { i++; continue; }
+      if (i + 1 >= len) { // ESC at the edge: could be the ST terminator
+        k.apcBuf += kittyLatin1.decode(data.subarray(textStart, i));
+        k.carry = data.slice(i);
+        return segs;
+      }
+      if (data[i + 1] === 0x5c) { // ESC \ ends the APC
+        k.apcBuf += kittyLatin1.decode(data.subarray(textStart, i));
+        segs.push({ apc: k.apcBuf });
+        k.inApc = false;
+        k.apcBuf = '';
+        i += 2;
+        textStart = i;
+        continue;
+      }
+      i += 2;
+    }
+  }
+  if (k.inApc) {
+    k.apcBuf += kittyLatin1.decode(data.subarray(textStart, len));
+  } else if (textStart < len) {
+    segs.push({ text: data.subarray(textStart, len) });
+  }
+  return segs;
+}
+
+function writePtyData(pane, bytes) {
+  if (!pane.kitty) { pane.term.write(bytes); return; }
+  const segs = kittyScan(pane.kitty, bytes);
+  for (const s of segs) {
+    if (s.text) pane.term.write(s.text.slice()); // copy: write() is async, the buffer is shared
+    else pane.term.write('', () => { kittyCommand(pane, s.apc); }); // anchor after preceding text
+  }
+}
+
+function kittyParseCtrl(str) {
+  const out = {};
+  for (const kv of str.split(',')) {
+    const eq = kv.indexOf('=');
+    if (eq > 0) out[kv.slice(0, eq)] = kv.slice(eq + 1);
+  }
+  return out;
+}
+
+function kittyRespond(pane, ctrl, msg) {
+  const ok = msg === 'OK';
+  if (ctrl.q === '2' || (ok && ctrl.q === '1')) return;
+  const keys = [];
+  if (ctrl.i) keys.push('i=' + ctrl.i);
+  if (ctrl.I) keys.push('I=' + ctrl.I);
+  if (!keys.length) return; // kitty only replies when the client sent an id
+  if (pane.exited) return;
+  invoke('pty_write', { id: pane.id, data: '\x1b_G' + keys.join(',') + ';' + msg + '\x1b\\' });
+}
+
+async function kittyInflate(bytes) {
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+function kittyB64(s) {
+  s = s.replace(/\s+/g, '');
+  while (s.length % 4) s += '='; // some clients send unpadded base64
+  return s;
+}
+
+async function kittyDecode(ctrl, payload) {
+  const t = ctrl.t || 'd';
+  let bytes;
+  if (t === 'd') {
+    bytes = b64ToBytes(kittyB64(payload));
+  } else if (t === 'f' || t === 't') {
+    const path = atob(kittyB64(payload));
+    const b64 = await invoke('read_file_b64', { path, max: 64000000, delete: t === 't' });
+    bytes = b64ToBytes(b64);
+  } else {
+    throw new Error('EUNSUPPORTED:medium ' + t);
+  }
+  if (ctrl.o === 'z') bytes = await kittyInflate(bytes);
+  const f = ctrl.f || '32';
+  if (f === '100') return await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+  const w = parseInt(ctrl.s, 10) || 0;
+  const h = parseInt(ctrl.v, 10) || 0;
+  if (!w || !h) throw new Error('EINVAL:missing s/v');
+  let rgba;
+  if (f === '24') {
+    if (bytes.length < w * h * 3) throw new Error('EINVAL:short payload');
+    rgba = new Uint8ClampedArray(w * h * 4);
+    for (let px = 0, j = 0; px < w * h; px++) {
+      rgba[j++] = bytes[px * 3];
+      rgba[j++] = bytes[px * 3 + 1];
+      rgba[j++] = bytes[px * 3 + 2];
+      rgba[j++] = 255;
+    }
+  } else if (f === '32') {
+    if (bytes.length < w * h * 4) throw new Error('EINVAL:short payload');
+    rgba = new Uint8ClampedArray(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + w * h * 4));
+  } else {
+    throw new Error('EUNSUPPORTED:format ' + f);
+  }
+  return await createImageBitmap(new ImageData(rgba, w, h));
+}
+
+function kittyCellDims(pane) {
+  const d = pane.term._core?._renderService?.dimensions?.css?.cell;
+  if (d?.width && d?.height) return { w: d.width, h: d.height };
+  const r = pane.term.element?.querySelector('.xterm-screen')?.getBoundingClientRect();
+  return {
+    w: (r?.width || pane.el.clientWidth || 800) / pane.term.cols,
+    h: (r?.height || pane.el.clientHeight || 600) / pane.term.rows,
+  };
+}
+
+function kittyStore(pane, id, bitmap) {
+  const k = pane.kitty;
+  const old = k.images.get(id);
+  if (old) old.bitmap.close?.();
+  k.images.set(id, { bitmap, bytes: bitmap.width * bitmap.height * 4, seq: ++k.seq });
+  // LRU eviction: drop the oldest unplaced images beyond the pixel budget
+  let total = 0;
+  for (const img of k.images.values()) total += img.bytes;
+  if (total <= KITTY_STORE_MAX) return;
+  const placed = new Set(k.placements.map((p) => p.imgId));
+  const byAge = [...k.images.entries()].sort((a, b) => a[1].seq - b[1].seq);
+  for (const [iid, img] of byAge) {
+    if (total <= KITTY_STORE_MAX) break;
+    if (placed.has(iid)) continue;
+    img.bitmap.close?.();
+    k.images.delete(iid);
+    total -= img.bytes;
+  }
+}
+
+function kittyPlace(pane, ctrl, imgId) {
+  const k = pane.kitty;
+  const img = k.images.get(imgId);
+  if (!img) { kittyRespond(pane, ctrl, 'ENOENT:no such image'); return false; }
+  const dims = kittyCellDims(pane);
+  const sx = parseInt(ctrl.x, 10) || 0;
+  const sy = parseInt(ctrl.y, 10) || 0;
+  const sw = parseInt(ctrl.w, 10) || (img.bitmap.width - sx);
+  const sh = parseInt(ctrl.h, 10) || (img.bitmap.height - sy);
+  let cols = parseInt(ctrl.c, 10) || Math.max(1, Math.ceil(sw / dims.w));
+  let rows = parseInt(ctrl.r, 10) || Math.max(1, Math.ceil(sh / dims.h));
+  if (cols > pane.term.cols) { // shrink to fit the viewport, keep aspect
+    rows = Math.max(1, Math.round(rows * pane.term.cols / cols));
+    cols = pane.term.cols;
+  }
+  const buf = pane.term.buffer.active;
+  const alt = buf.type === 'alternate';
+  const place = {
+    imgId, col: buf.cursorX, cols, rows, sx, sy, sw, sh, alt,
+    marker: alt ? null : pane.term.registerMarker(0),
+    row: alt ? buf.cursorY : 0, // alt screen never scrolls; a fixed row is enough
+  };
+  k.placements.push(place);
+  if (k.placements.length > 200) k.placements.shift();
+  img.seq = ++k.seq;
+  // kitty moves the cursor below the image unless C=1 (video players use C=1)
+  if (ctrl.C !== '1') pane.term.write('\r' + '\n'.repeat(rows));
+  kittyDraw(pane); // synchronous: video frames shouldn't wait a frame
+  return true;
+}
+
+function kittyDelete(pane, ctrl) {
+  const k = pane.kitty;
+  const what = ctrl.d || 'a';
+  const freeData = what === what.toUpperCase();
+  const kind = what.toLowerCase();
+  if (kind === 'i' && ctrl.i) {
+    const id = ctrl.i;
+    k.placements = k.placements.filter((p) => String(p.imgId) !== id);
+    if (freeData) { k.images.get(id)?.bitmap.close?.(); k.images.delete(id); }
+  } else { // 'a' and anything unhandled: clear all placements
+    k.placements = [];
+    if (freeData) {
+      for (const img of k.images.values()) img.bitmap.close?.();
+      k.images.clear();
+    }
+  }
+  kittyDraw(pane);
+}
+
+async function kittyCommand(pane, apc) {
+  const k = pane.kitty;
+  if (!k) return;
+  const semi = apc.indexOf(';');
+  const ctrlStr = semi === -1 ? apc : apc.slice(0, semi);
+  let payload = semi === -1 ? '' : apc.slice(semi + 1);
+  let ctrl = kittyParseCtrl(ctrlStr);
+  // Chunked transmission: the first chunk carries the keys and m=1;
+  // continuations carry only m (and optionally i/q) plus payload.
+  if (k.pending) {
+    k.pending.parts.push(payload);
+    if (ctrl.m === '1') return;
+    ctrl = k.pending.ctrl;
+    payload = k.pending.parts.join('');
+    k.pending = null;
+  } else if (ctrl.m === '1') {
+    k.pending = { ctrl, parts: [payload] };
+    return;
+  }
+  const action = ctrl.a || 't';
+  try {
+    switch (action) {
+      case 'q': { // capability probe (kitten icat sends one before drawing)
+        await kittyDecode(ctrl, payload);
+        kittyRespond(pane, ctrl, 'OK');
+        break;
+      }
+      case 't':
+      case 'T': {
+        const bitmap = await kittyDecode(ctrl, payload);
+        const id = ctrl.i || String(k.autoId--);
+        kittyStore(pane, id, bitmap);
+        kittyRespond(pane, ctrl, 'OK');
+        if (action === 'T') kittyPlace(pane, ctrl, id);
+        break;
+      }
+      case 'p': {
+        if (!ctrl.i) { kittyRespond(pane, ctrl, 'EINVAL:missing image id'); break; }
+        if (kittyPlace(pane, ctrl, ctrl.i)) kittyRespond(pane, ctrl, 'OK');
+        break;
+      }
+      case 'd':
+        kittyDelete(pane, ctrl);
+        kittyRespond(pane, ctrl, 'OK');
+        break;
+      default:
+        kittyRespond(pane, ctrl, 'ENOTSUPPORTED:action ' + action);
+    }
+  } catch (err) {
+    kittyRespond(pane, ctrl, String(err?.message || err || 'EINVAL'));
+  }
+}
+
+function kittyRedraw(pane) {
+  const k = pane.kitty;
+  if (!k || k.raf) return;
+  k.raf = requestAnimationFrame(() => {
+    k.raf = 0;
+    kittyDraw(pane);
+  });
+}
+
+function kittyDraw(pane) {
+  const k = pane.kitty;
+  if (!k) return;
+  // prune placements whose anchor line left the scrollback
+  k.placements = k.placements.filter((p) => p.alt || (p.marker && !p.marker.isDisposed && p.marker.line !== -1));
+  if (!k.placements.length && !k.layer) return;
+  const screen = pane.term.element?.querySelector('.xterm-screen');
+  if (!screen) return;
+  if (!k.layer) {
+    k.layer = document.createElement('canvas');
+    k.layer.className = 'kitty-layer';
+    screen.appendChild(k.layer);
+  }
+  const dpr = window.devicePixelRatio || 1;
+  const w = screen.clientWidth;
+  const h = screen.clientHeight;
+  if (k.layer.width !== Math.round(w * dpr) || k.layer.height !== Math.round(h * dpr)) {
+    k.layer.width = Math.round(w * dpr);
+    k.layer.height = Math.round(h * dpr);
+    k.layer.style.width = w + 'px';
+    k.layer.style.height = h + 'px';
+  }
+  const ctx = k.layer.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const buf = pane.term.buffer.active;
+  const inAlt = buf.type === 'alternate';
+  const dims = kittyCellDims(pane);
+  for (const p of k.placements) {
+    if (p.alt !== inAlt) continue; // normal-buffer images hide while a TUI runs
+    const row = p.alt ? p.row : p.marker.line - buf.viewportY;
+    if (row + p.rows <= 0 || row >= pane.term.rows) continue;
+    const img = k.images.get(p.imgId);
+    if (!img) continue;
+    try {
+      ctx.drawImage(
+        img.bitmap, p.sx, p.sy, p.sw, p.sh,
+        p.col * dims.w, row * dims.h, p.cols * dims.w, p.rows * dims.h,
+      );
+    } catch { /* bitmap may have been closed under memory pressure */ }
+  }
+}
+
+function hookKitty(pane) {
+  kittyInit(pane);
+  pane.term.onRender(() => kittyRedraw(pane));
+  pane.term.onScroll(() => kittyRedraw(pane));
+  pane.term.buffer.onBufferChange(() => {
+    // leaving the alt screen discards its placements (mpv/vim cleanup)
+    if (pane.term.buffer.active.type === 'normal') {
+      pane.kitty.placements = pane.kitty.placements.filter((p) => !p.alt);
+    }
+    kittyRedraw(pane);
+  });
+}
+
 // --- IPC routing ------------------------------------------------------------
 function findPane(id) {
   for (const t of tabs) {
@@ -1557,7 +2341,7 @@ function findPane(id) {
 
 listen('pty://data', (e) => {
   const hit = findPane(e.payload.id); if (!hit) return;
-  hit.p.term.write(b64ToBytes(e.payload.data));
+  writePtyData(hit.p, b64ToBytes(e.payload.data)); // kitty APCs are peeled off here
 });
 listen('pty://exit', (e) => {
   const hit = findPane(e.payload.id); if (!hit) return;
@@ -1735,25 +2519,25 @@ document.getElementById('find-close').addEventListener('mousedown', (e) => { e.p
 let paletteSel = 0;
 function paletteActions() {
   const acts = [
-    { label: 'New tab', kbd: '⌘T', run: () => createTab() },
-    { label: 'Close pane / tab', kbd: '⌘W', run: () => closeFocused() },
-    { label: 'Split right', kbd: '⌘D', run: () => splitPane('row') },
-    { label: 'Split down', kbd: '⇧⌘D', run: () => splitPane('column') },
-    { label: 'Zoom pane (toggle)', kbd: '⇧⌘↵', run: () => toggleZoom() },
-    { label: 'Broadcast input to all panes (toggle)', kbd: '⇧⌘B', run: () => toggleBroadcast() },
-    { label: 'Close split pane', kbd: '⇧⌘W', run: () => { if (activeTab && activeTab.panes.length > 1) closePane(activeTab, activeTab.active); } },
+    { label: 'New tab', kbd: kbdLabel('new-tab'), run: () => createTab() },
+    { label: 'Close pane / tab', kbd: kbdLabel('close'), run: () => closeFocused() },
+    { label: 'Split right', kbd: kbdLabel('split-right'), run: () => splitPane('row') },
+    { label: 'Split down', kbd: kbdLabel('split-down'), run: () => splitPane('column') },
+    { label: 'Zoom pane (toggle)', kbd: kbdLabel('zoom-pane'), run: () => toggleZoom() },
+    { label: 'Broadcast input to all panes (toggle)', kbd: kbdLabel('broadcast'), run: () => toggleBroadcast() },
+    { label: 'Close split pane', kbd: kbdLabel('close-split'), run: () => { if (activeTab && activeTab.panes.length > 1) closePane(activeTab, activeTab.active); } },
     { label: 'Move pane to new tab', kbd: '', run: () => { if (activeTab && activeTab.panes.length > 1) movePaneToNewTab(activeTab, activeTab.active); } },
-    { label: 'Next tab', kbd: '⇧⌘}', run: () => cycleTab(1) },
-    { label: 'Previous tab', kbd: '⇧⌘{', run: () => cycleTab(-1) },
-    { label: 'Mission control', kbd: '⌘E', run: () => toggleMission() },
-    { label: 'Find in scrollback', kbd: '⌘F', run: () => openFind() },
-    { label: 'Clear terminal', kbd: '⌘K', run: () => activePane()?.term.clear() },
-    { label: 'Toggle artifacts panel', kbd: '⇧⌘A', run: () => togglePanel() },
-    { label: 'Settings', kbd: '⌘,', run: () => toggleSettings() },
+    { label: 'Next tab', kbd: kbdLabel('next-tab'), run: () => cycleTab(1) },
+    { label: 'Previous tab', kbd: kbdLabel('prev-tab'), run: () => cycleTab(-1) },
+    { label: 'Mission control', kbd: kbdLabel('mission'), run: () => toggleMission() },
+    { label: 'Find in scrollback', kbd: kbdLabel('find'), run: () => openFind() },
+    { label: 'Clear terminal', kbd: kbdLabel('clear'), run: () => activePane()?.term.clear() },
+    { label: 'Toggle artifacts panel', kbd: kbdLabel('artifacts'), run: () => togglePanel() },
+    { label: 'Settings', kbd: kbdLabel('settings'), run: () => toggleSettings() },
     ...(pendingUpdate ? [{ label: `Install update v${pendingUpdate.version} (restarts)`, kbd: '', run: () => installPendingUpdate() }] : []),
     { label: 'Copy last command output', kbd: '', run: () => copyLastOutput() },
-    { label: 'Jump to previous prompt', kbd: '⌘↑', run: () => jumpPrompt(-1) },
-    { label: 'Jump to next prompt', kbd: '⌘↓', run: () => jumpPrompt(1) },
+    { label: 'Jump to previous prompt', kbd: kbdLabel('prev-prompt'), run: () => jumpPrompt(-1) },
+    { label: 'Jump to next prompt', kbd: kbdLabel('next-prompt'), run: () => jumpPrompt(1) },
   ];
   if (activePane()?.cwd) {
     acts.push({ label: 'Reveal current folder in Finder', kbd: '', run: () => invoke('artifact_reveal', { path: activePane().cwd }) });
@@ -1912,33 +2696,22 @@ window.addEventListener('keydown', (e) => {
     else if (!settingsEl.classList.contains('hidden')) { e.preventDefault(); toggleSettings(); }
     return;
   }
-  if (!e.metaKey) return;
-  if (e.shiftKey) {
-    const k = e.key.toLowerCase();
-    if (k === 'a') { e.preventDefault(); togglePanel(); }
-    else if (k === 'd') { e.preventDefault(); splitPane('column'); }
-    else if (k === 'b') { e.preventDefault(); toggleBroadcast(); }
-    else if (k === 'w') { e.preventDefault(); if (activeTab && activeTab.panes.length > 1) closePane(activeTab, activeTab.active); }
-    else if (e.key === 'Enter') { e.preventDefault(); toggleZoom(); }
-    else if (e.key === '{' || e.key === '[') { e.preventDefault(); cycleTab(-1); }
-    else if (e.key === '}' || e.key === ']') { e.preventDefault(); cycleTab(1); }
-    return;
+  if (recordingId) return; // the capture-phase recorder owns this event
+  const combo = comboOf(e);
+  if (!combo.mods) return;
+  for (const id of Object.keys(DEFAULT_KEYMAP)) {
+    const hk = hotkeyOf(id);
+    if (hk.mods === combo.mods && hk.key === combo.key) {
+      e.preventDefault();
+      ACTION_RUN[id]();
+      return;
+    }
   }
-  const k = e.key.toLowerCase();
-  if (k === 't') { e.preventDefault(); createTab(); }
-  else if (k === 'w') { e.preventDefault(); closeFocused(); }
-  else if (k === 'd') { e.preventDefault(); splitPane('row'); }
-  else if (k === 'e') { e.preventDefault(); toggleMission(); }
-  else if (k === 'f') { e.preventDefault(); openFind(); }
-  else if (k === 'p') { e.preventDefault(); togglePalette(); }
-  else if (k === 'k') { e.preventDefault(); activePane()?.term.clear(); }
-  else if (k === 'arrowup') { e.preventDefault(); jumpPrompt(-1); }
-  else if (k === 'arrowdown') { e.preventDefault(); jumpPrompt(1); }
-  else if (k === ',') { e.preventDefault(); toggleSettings(); }
-  else if (k === '=' || k === '+') { e.preventDefault(); adjustFont(0.5); }
-  else if (k === '-') { e.preventDefault(); adjustFont(-0.5); }
-  else if (k === '0') { e.preventDefault(); adjustFont(0); }
-  else if (/^[1-9]$/.test(k)) { e.preventDefault(); const t = tabs[+k - 1]; if (t) activateTab(t); }
+  if (combo.mods === 'meta' && /^[1-9]$/.test(combo.key)) {
+    e.preventDefault();
+    const t = tabs[+combo.key - 1];
+    if (t) activateTab(t);
+  }
 });
 
 setInterval(() => {
@@ -1971,11 +2744,16 @@ function runSplash() {
 async function boot() {
   loadSettings();
   try { HOME = await invoke('app_home'); } catch { HOME = ''; }
+  if (settings.summon !== DEFAULT_SETTINGS.summon) {
+    applySummonShortcut(settings.summon).catch(() => {});
+  }
   try {
+    await loadUserFontFiles(); // imported FontFaces must exist before preload
     await Promise.all([
       document.fonts.load('100 60px "Raleway"'),
       document.fonts.load('400 14px "JetBrains Mono"'),
       document.fonts.load('700 14px "JetBrains Mono"'),
+      preloadTermFont(),
     ]);
   } catch {}
   runSplash();

@@ -1,15 +1,15 @@
 {
-  "version": "0.2.7",
-  "notes": "Structural session restore (no scrollback replay). Signed with Developer ID.",
-  "pub_date": "2026-07-08T19:00:00Z",
+  "version": "0.2.9",
+  "notes": "Kitty graphics protocol (inline images in the terminal; kitten icat, mpv and timg video), custom terminal fonts (import font files or use any installed font), bash shell integration with nested-shell support.",
+  "pub_date": "2026-07-14T19:08:26Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNTJaZE5kOEt6NCtQajk0L3BxVzZqTXdseHVWTWloOStPOVJQem9abFVSeUlXUnBHSzZVTUJHcGRyVUcxczVCUUdMNDRHTndFYzJ3Vy9PbkZhQnZicndJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzNTM1MTU5CWZpbGU6UFJJU00uYXBwLnRhci5negpOajJPd3JzWXZIL2ZySlkzWWhrSmdFTFZJT284WWJaelRwL3FHMWorRWFWMmM3R293SHVLUUI2bStySVk2aWczd0pEb3NMcmtZdEFRNTg4ZEhET2xCQT09Cg==",
-      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.2.7.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNXlCbDZBMXlIL2d5ajJmMHhyQVlrVS92aDAwaXNzMFJPS0tiTW5IWlY4Q0hSR2dLVlMvVzdYRTE0TnhxbEtyVXBnMWtTTlVWN3krT1lSeXA1aWZMZUFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg0MDU2MDc0CWZpbGU6UFJJU00uYXBwLnRhci5nego4L3Nja0t0OXFuQk1NUVpiMytvTm9HbUlPOWpUdWJ0NE55NmM2N0lNczVsVE9QVlg2alQyMU1aTENZOU9FQWYvWmNJTVBEaDBJQnNPWXRpL3NpdXpEUT09Cg==",
+      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.2.9.app.tar.gz"
     },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNTJaZE5kOEt6NCtQajk0L3BxVzZqTXdseHVWTWloOStPOVJQem9abFVSeUlXUnBHSzZVTUJHcGRyVUcxczVCUUdMNDRHTndFYzJ3Vy9PbkZhQnZicndJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzNTM1MTU5CWZpbGU6UFJJU00uYXBwLnRhci5negpOajJPd3JzWXZIL2ZySlkzWWhrSmdFTFZJT284WWJaelRwL3FHMWorRWFWMmM3R293SHVLUUI2bStySVk2aWczd0pEb3NMcmtZdEFRNTg4ZEhET2xCQT09Cg==",
-      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.2.7.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNXlCbDZBMXlIL2d5ajJmMHhyQVlrVS92aDAwaXNzMFJPS0tiTW5IWlY4Q0hSR2dLVlMvVzdYRTE0TnhxbEtyVXBnMWtTTlVWN3krT1lSeXA1aWZMZUFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg0MDU2MDc0CWZpbGU6UFJJU00uYXBwLnRhci5nego4L3Nja0t0OXFuQk1NUVpiMytvTm9HbUlPOWpUdWJ0NE55NmM2N0lNczVsVE9QVlg2alQyMU1aTENZOU9FQWYvWmNJTVBEaDBJQnNPWXRpL3NpdXpEUT09Cg==",
+      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.2.9.app.tar.gz"
     }
   }
 }

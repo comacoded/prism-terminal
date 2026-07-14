@@ -98,30 +98,19 @@ fn home() -> String {
     std::env::var("HOME").unwrap_or_else(|_| "/".into())
 }
 
-/// zsh startup stubs, injected via ZDOTDIR: each one sources the user's own
-/// config, then .zshrc adds hooks that emit OSC 133 semantic prompt marks
-/// (prompt start, command start, command end + exit code). The frontend uses
-/// those marks for prompt jumping, per-command duration, and notifications.
-const ZSHENV: &str = r#"# PRISM shell integration bootstrap (auto-generated).
-PRISM_ZDOTDIR="$ZDOTDIR"
-if [[ -f "${PRISM_USER_ZDOTDIR:-$HOME}/.zshenv" ]]; then
-  ZDOTDIR="${PRISM_USER_ZDOTDIR:-$HOME}"
-  . "${PRISM_USER_ZDOTDIR:-$HOME}/.zshenv"
-  ZDOTDIR="$PRISM_ZDOTDIR"
-fi
-"#;
-const ZPROFILE: &str = r#"if [[ -f "${PRISM_USER_ZDOTDIR:-$HOME}/.zprofile" ]]; then
-  ZDOTDIR="${PRISM_USER_ZDOTDIR:-$HOME}"
-  . "${PRISM_USER_ZDOTDIR:-$HOME}/.zprofile"
-  ZDOTDIR="$PRISM_ZDOTDIR"
-fi
-"#;
-const ZSHRC: &str = r#"# PRISM: source the user's zshrc, then emit OSC 133 semantic prompt marks.
-if [[ -f "${PRISM_USER_ZDOTDIR:-$HOME}/.zshrc" ]]; then
-  ZDOTDIR="${PRISM_USER_ZDOTDIR:-$HOME}"
-  . "${PRISM_USER_ZDOTDIR:-$HOME}/.zshrc"
-fi
-if [[ "${PRISM_USER_ZDOTDIR:-$HOME}" == "$HOME" ]]; then unset ZDOTDIR; else ZDOTDIR="$PRISM_USER_ZDOTDIR"; fi
+/// Shell integration scripts. zsh loads automatically via ZDOTDIR stubs; bash
+/// loads via --init-file. Both hook files are standalone and idempotent, so a
+/// nested or oddly-launched shell can always load them by hand:
+///   zsh:  source "$PRISM_INTEGRATION_DIR/prism.zsh"
+///   bash: source "$PRISM_INTEGRATION_DIR/prism.bash"
+/// The hooks emit OSC 133 semantic prompt marks (prompt start, command start,
+/// command end + exit code), OSC 7 cwd reports, and OSC 633;E command text.
+const PRISM_ZSH: &str = r#"# PRISM shell integration for zsh (auto-generated).
+# Safe to source manually in any zsh:  source "$PRISM_INTEGRATION_DIR/prism.zsh"
+[[ -o interactive ]] || return 0
+[[ -n "$PRISM_SOCKET" ]] || return 0
+[[ -n "$__PRISM_ZSH_HOOKED" ]] && return 0
+typeset -g __PRISM_ZSH_HOOKED=1
 
 __prism_preexec() {
   printf '\033]133;C\007'
@@ -169,6 +158,114 @@ prism() {
   esac
   printf '%s\n' "$json" | nc -U "$PRISM_SOCKET"
 }
+"#;
+
+/// bash integration: precmd via a prepended PROMPT_COMMAND (so $? is intact),
+/// preexec via PS0 (bash 4.4+; on 3.2 the C/E marks degrade gracefully —
+/// prompt marks and cwd reports still work).
+const PRISM_BASH: &str = r#"# PRISM shell integration for bash (auto-generated).
+# Safe to source manually in any bash:  source "$PRISM_INTEGRATION_DIR/prism.bash"
+case "$-" in *i*) ;; *) return 0 ;; esac
+[ -n "$PRISM_SOCKET" ] || return 0
+[ -n "$__PRISM_BASH_HOOKED" ] && return 0
+__PRISM_BASH_HOOKED=1
+
+__prism_osc7() {
+  local url="file://$HOSTNAME" out="" c i
+  for (( i = 0; i < ${#PWD}; i++ )); do
+    c="${PWD:$i:1}"
+    case "$c" in
+      [A-Za-z0-9/._~-]) out+="$c" ;;
+      *) printf -v c '%%%02X' "'$c"; out+="$c" ;;
+    esac
+  done
+  printf '\033]7;%s%s\033\\' "$url" "$out"
+}
+# D is emitted unconditionally: the frontend pairs it with the last C mark
+# and ignores an unpaired D (e.g. the first prompt, or an empty enter).
+__prism_precmd() {
+  local ec=$?
+  printf '\033]133;D;%s\007\033]133;A\007' "$ec"
+  __prism_osc7
+}
+# PS0 expands after a command is read, before it runs: the natural preexec.
+# It runs in a subshell, so it must not rely on setting parent-shell state.
+__prism_preexec() {
+  printf '\033]133;C\007'
+  local c
+  c="$(HISTTIMEFORMAT='' builtin history 1 2>/dev/null | sed 's/^ *[0-9]* *//')"
+  printf '\033]633;E;%s\007' "${c//$'\n'/ }"
+}
+if [ "${BASH_VERSINFO[0]:-0}" -gt 4 ] || { [ "${BASH_VERSINFO[0]:-0}" -eq 4 ] && [ "${BASH_VERSINFO[1]:-0}" -ge 4 ]; }; then
+  PS0='$(__prism_preexec)'"$PS0"
+fi
+if [[ "$(declare -p PROMPT_COMMAND 2>/dev/null)" == "declare -a"* ]]; then
+  PROMPT_COMMAND=(__prism_precmd "${PROMPT_COMMAND[@]}")
+else
+  PROMPT_COMMAND="__prism_precmd${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+fi
+
+# `prism` CLI: drive PRISM over its socket API from any pane (agents included).
+prism() {
+  if [ -z "$PRISM_SOCKET" ]; then echo "prism: not inside PRISM" >&2; return 1; fi
+  local sub="$1"; [ $# -gt 0 ] && shift
+  local json
+  case "$sub" in
+    list)     json='{"cmd":"list"}' ;;
+    new-tab)  json="{\"cmd\":\"new-tab\",\"cwd\":\"${1:-$PWD}\"}" ;;
+    split)    json="{\"cmd\":\"split\",\"dir\":\"${1:-row}\"}" ;;
+    read)     json="{\"cmd\":\"read\",\"id\":${1:?pane id},\"lines\":${2:-50}}" ;;
+    activate) json="{\"cmd\":\"activate\",\"id\":${1:?pane id}}" ;;
+    send)     local _pid="${1:?pane id}"; shift
+              json="{\"cmd\":\"send\",\"id\":${_pid},\"data\":$(printf '%s' "$*" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()+"\n"))')}" ;;
+    notify)   json="{\"cmd\":\"notify\",\"title\":\"PRISM\",\"body\":$(printf '%s' "$*" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}" ;;
+    ''|help)  echo "usage: prism list|new-tab [dir]|split [row|column]|read <pane> [lines]|send <pane> <text>|activate <pane>|notify <text>|'<raw json>'" >&2; return 1 ;;
+    *)        json="$sub" ;;
+  esac
+  printf '%s\n' "$json" | nc -U "$PRISM_SOCKET"
+}
+"#;
+
+/// Passed to bash as --init-file: emulate a login shell (profiles), then hook.
+const BASH_INIT: &str = r#"# PRISM bash bootstrap (auto-generated).
+if [ -f /etc/profile ]; then . /etc/profile; fi
+for __prism_f in "$HOME/.bash_profile" "$HOME/.bash_login" "$HOME/.profile"; do
+  if [ -f "$__prism_f" ]; then . "$__prism_f"; break; fi
+done
+unset __prism_f
+if [ -n "$PRISM_INTEGRATION_DIR" ] && [ -f "$PRISM_INTEGRATION_DIR/prism.bash" ]; then
+  . "$PRISM_INTEGRATION_DIR/prism.bash"
+fi
+"#;
+
+/// zsh startup stubs, injected via ZDOTDIR: each one sources the user's own
+/// config, then .zshrc loads prism.zsh. ZDOTDIR is exported for every PTY
+/// (bash ignores it), so a zsh nested under bash still auto-loads integration.
+const ZSHENV: &str = r#"# PRISM shell integration bootstrap (auto-generated).
+PRISM_ZDOTDIR="$ZDOTDIR"
+if [[ -f "${PRISM_USER_ZDOTDIR:-$HOME}/.zshenv" ]]; then
+  ZDOTDIR="${PRISM_USER_ZDOTDIR:-$HOME}"
+  . "${PRISM_USER_ZDOTDIR:-$HOME}/.zshenv"
+  ZDOTDIR="$PRISM_ZDOTDIR"
+fi
+"#;
+const ZPROFILE: &str = r#"if [[ -f "${PRISM_USER_ZDOTDIR:-$HOME}/.zprofile" ]]; then
+  ZDOTDIR="${PRISM_USER_ZDOTDIR:-$HOME}"
+  . "${PRISM_USER_ZDOTDIR:-$HOME}/.zprofile"
+  ZDOTDIR="$PRISM_ZDOTDIR"
+fi
+"#;
+const ZSHRC: &str = r#"# PRISM: source the user's zshrc, then load PRISM shell integration.
+if [[ -f "${PRISM_USER_ZDOTDIR:-$HOME}/.zshrc" ]]; then
+  ZDOTDIR="${PRISM_USER_ZDOTDIR:-$HOME}"
+  . "${PRISM_USER_ZDOTDIR:-$HOME}/.zshrc"
+fi
+if [[ "${PRISM_USER_ZDOTDIR:-$HOME}" == "$HOME" ]]; then unset ZDOTDIR; else ZDOTDIR="$PRISM_USER_ZDOTDIR"; fi
+if [[ -n "$PRISM_INTEGRATION_DIR" && -f "$PRISM_INTEGRATION_DIR/prism.zsh" ]]; then
+  . "$PRISM_INTEGRATION_DIR/prism.zsh"
+elif [[ -n "$PRISM_ZDOTDIR" && -f "${PRISM_ZDOTDIR:h}/prism.zsh" ]]; then
+  . "${PRISM_ZDOTDIR:h}/prism.zsh"
+fi
 "#;
 const ZLOGIN: &str = r#"if [[ -f "${PRISM_USER_ZDOTDIR:-$HOME}/.zlogin" ]]; then
   . "${PRISM_USER_ZDOTDIR:-$HOME}/.zlogin"
@@ -247,16 +344,21 @@ fn spawn_api_loop(app: tauri::AppHandle, state: Arc<AppState>) {
     });
 }
 
-/// Write the ZDOTDIR stubs once per launch; returns the dir to point zsh at.
-fn zsh_integration_dir(app: &tauri::AppHandle) -> Option<String> {
+/// Write the integration scripts once per launch; returns the dir holding
+/// prism.zsh / prism.bash / bash-init.sh and the zdotdir/ stubs.
+fn shell_integration_dir(app: &tauri::AppHandle) -> Option<String> {
     static DIR: OnceLock<Option<String>> = OnceLock::new();
     DIR.get_or_init(|| {
-        let dir = app.path().app_data_dir().ok()?.join("zsh-integration");
-        std::fs::create_dir_all(&dir).ok()?;
-        std::fs::write(dir.join(".zshenv"), ZSHENV).ok()?;
-        std::fs::write(dir.join(".zprofile"), ZPROFILE).ok()?;
-        std::fs::write(dir.join(".zshrc"), ZSHRC).ok()?;
-        std::fs::write(dir.join(".zlogin"), ZLOGIN).ok()?;
+        let dir = app.path().app_data_dir().ok()?.join("shell-integration");
+        let zdot = dir.join("zdotdir");
+        std::fs::create_dir_all(&zdot).ok()?;
+        std::fs::write(dir.join("prism.zsh"), PRISM_ZSH).ok()?;
+        std::fs::write(dir.join("prism.bash"), PRISM_BASH).ok()?;
+        std::fs::write(dir.join("bash-init.sh"), BASH_INIT).ok()?;
+        std::fs::write(zdot.join(".zshenv"), ZSHENV).ok()?;
+        std::fs::write(zdot.join(".zprofile"), ZPROFILE).ok()?;
+        std::fs::write(zdot.join(".zshrc"), ZSHRC).ok()?;
+        std::fs::write(zdot.join(".zlogin"), ZLOGIN).ok()?;
         Some(dir.to_string_lossy().into_owned())
     })
     .clone()
@@ -290,9 +392,20 @@ fn pty_spawn(
         _ => home(),
     };
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
-    let is_zsh = shell.rsplit('/').next() == Some("zsh");
+    let shell_name = shell.rsplit('/').next().unwrap_or("");
+    let integ = shell_integration_dir(&app);
     let mut cmd = CommandBuilder::new(&shell);
-    cmd.arg("-l");
+    // bash: --init-file replaces -l; the init script emulates a login shell
+    // (profiles) and then loads prism.bash. Everything else stays a login shell.
+    match (shell_name, &integ) {
+        ("bash", Some(dir)) => {
+            cmd.arg("--init-file");
+            cmd.arg(format!("{}/bash-init.sh", dir));
+        }
+        _ => {
+            cmd.arg("-l");
+        }
+    }
     cmd.cwd(start_dir);
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
@@ -301,12 +414,14 @@ fn pty_spawn(
     if let Some(sock) = api_socket_path(&app) {
         cmd.env("PRISM_SOCKET", sock);
     }
-    if is_zsh {
-        if let Some(dir) = zsh_integration_dir(&app) {
-            let orig = std::env::var("ZDOTDIR").unwrap_or_default();
-            cmd.env("PRISM_USER_ZDOTDIR", if orig.is_empty() { home() } else { orig });
-            cmd.env("ZDOTDIR", dir);
-        }
+    if let Some(dir) = &integ {
+        // Exported for every shell: nested shells (e.g. zsh under bash) can be
+        // hooked manually via `source "$PRISM_INTEGRATION_DIR/prism.zsh"`, and
+        // ZDOTDIR makes a zsh started from a non-zsh default pick it up alone.
+        cmd.env("PRISM_INTEGRATION_DIR", dir.as_str());
+        let orig = std::env::var("ZDOTDIR").unwrap_or_default();
+        cmd.env("PRISM_USER_ZDOTDIR", if orig.is_empty() { home() } else { orig });
+        cmd.env("ZDOTDIR", format!("{}/zdotdir", dir));
     }
 
     let mut child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
@@ -449,6 +564,70 @@ fn artifact_diff(cwd: String, path: String) -> String {
     }
 }
 
+// --- Custom terminal fonts ----------------------------------------------------
+fn user_fonts_dir(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    let dir = app_data_dir(app)?.join("user-fonts");
+    std::fs::create_dir_all(&dir).ok()?;
+    Some(dir)
+}
+
+#[tauri::command]
+fn font_save(app: tauri::AppHandle, name: String, data_b64: String) -> Result<String, String> {
+    let safe: String = name
+        .chars()
+        .map(|c| if c.is_alphanumeric() || "._- ".contains(c) { c } else { '_' })
+        .collect();
+    if safe.is_empty() || safe.starts_with('.') {
+        return Err("bad font file name".into());
+    }
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(data_b64)
+        .map_err(|e| e.to_string())?;
+    if bytes.len() > 40_000_000 {
+        return Err("font file too large".into());
+    }
+    let dir = user_fonts_dir(&app).ok_or("no data dir")?;
+    std::fs::write(dir.join(&safe), bytes).map_err(|e| e.to_string())?;
+    Ok(safe)
+}
+
+#[tauri::command]
+fn font_load(app: tauri::AppHandle, file: String) -> Result<String, String> {
+    if file.contains('/') || file.starts_with('.') {
+        return Err("bad font file name".into());
+    }
+    let dir = user_fonts_dir(&app).ok_or("no data dir")?;
+    let bytes = std::fs::read(dir.join(&file)).map_err(|e| e.to_string())?;
+    Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
+}
+
+#[tauri::command]
+fn font_delete(app: tauri::AppHandle, file: String) -> Result<(), String> {
+    if file.contains('/') || file.starts_with('.') {
+        return Err("bad font file name".into());
+    }
+    let dir = user_fonts_dir(&app).ok_or("no data dir")?;
+    std::fs::remove_file(dir.join(&file)).map_err(|e| e.to_string())
+}
+
+/// Kitty graphics t=f / t=t media: read a file the client asked us to display.
+/// `delete` honors t=t semantics but only for the protocol's own temp files.
+#[tauri::command]
+fn read_file_b64(path: String, max: Option<u64>, delete: Option<bool>) -> Result<String, String> {
+    let meta = std::fs::metadata(&path).map_err(|e| e.to_string())?;
+    if !meta.is_file() {
+        return Err("not a file".into());
+    }
+    if meta.len() > max.unwrap_or(64_000_000) {
+        return Err("file too large".into());
+    }
+    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+    if delete.unwrap_or(false) && path.contains("tty-graphics-protocol") {
+        let _ = std::fs::remove_file(&path);
+    }
+    Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
+}
+
 /// Cmd-click semantic history: open a path (optionally file:line) in the
 /// configured editor, falling back to the system opener.
 #[tauri::command]
@@ -495,6 +674,15 @@ fn set_badge(app: tauri::AppHandle, count: i64) {
 #[tauri::command]
 fn app_version() -> String {
     env!("CARGO_PKG_VERSION").into()
+}
+
+/// Re-register the global summon shortcut (the frontend owns the persisted value).
+#[tauri::command]
+fn set_summon_shortcut(app: tauri::AppHandle, shortcut: String) -> Result<(), String> {
+    use tauri_plugin_global_shortcut::GlobalShortcutExt;
+    let gs = app.global_shortcut();
+    gs.unregister_all().map_err(|e| e.to_string())?;
+    gs.register(shortcut.as_str()).map_err(|e| e.to_string())
 }
 
 /// Ask the update endpoint whether a newer build exists.
@@ -758,6 +946,8 @@ fn main() {
                 .build(),
         )
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // Remember window size/position across launches.
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             app_home,
             pty_spawn,
@@ -776,8 +966,13 @@ fn main() {
             session_load,
             api_respond,
             app_version,
+            set_summon_shortcut,
             check_update,
-            install_update
+            install_update,
+            font_save,
+            font_load,
+            font_delete,
+            read_file_b64
         ])
         .setup(move |app| {
             let window = app.get_webview_window("main").unwrap();

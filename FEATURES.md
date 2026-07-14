@@ -116,16 +116,30 @@ rendering, portable-pty, zsh shell integration injected via ZDOTDIR.
   cursor style (bar / block / underline) and blink, work-glow toggle, a
   reset-to-defaults button, and a full shortcuts reference. Persisted
   across launches.
+- **Terminal fonts.** Bundled JetBrains Mono, Fira Code, Iosevka, and
+  Monocraft, plus your own: import a .ttf/.otf/.woff2 file (stored in app
+  data, loads on every launch) or add any installed system font by name.
 - **Fast scrolling.** 8x wheel scrolling; hold Alt for 20x.
 - **GPU rendering.** WebGL renderer with automatic DOM-renderer fallback.
 - **Footer context.** Working directory (tilde-shortened), git branch,
   foreground process, session uptime, live-updated.
 
-## Shell integration (zsh, automatic)
+## Shell integration (zsh + bash, automatic)
 
-PRISM injects a ZDOTDIR bootstrap that sources your real zsh config
-untouched, then registers hooks. No dotfile edits required. Nested shells
-and other terminals are unaffected.
+zsh sessions get a ZDOTDIR bootstrap that sources your real zsh config
+untouched, then registers hooks. bash sessions launch with an init file
+that emulates a login shell (profiles) before hooking PROMPT_COMMAND and
+PS0 (bash 4.4+; on the ancient macOS 3.2 the command-start mark degrades
+gracefully). No dotfile edits required, and other terminals are unaffected.
+
+Nested shells: every PRISM pane exports `PRISM_INTEGRATION_DIR`, and a zsh
+started from a non-zsh default shell picks the hooks up automatically via
+ZDOTDIR. Any other nested shell can load them manually:
+
+```sh
+source "$PRISM_INTEGRATION_DIR/prism.zsh"    # nested zsh
+source "$PRISM_INTEGRATION_DIR/prism.bash"   # nested bash
+```
 
 Emitted marks:
 
@@ -158,11 +172,11 @@ On top of that, PRISM enables or implements:
 | iTerm inline images (IIP) | Yes | @xterm/addon-image |
 | Unicode grapheme clustering | Yes | Correct widths for complex emoji/scripts |
 | OSC 7 cwd reporting | Yes | Custom handler |
-| OSC 133 semantic prompts | Yes | Custom handler + injected zsh hooks |
+| OSC 133 semantic prompts | Yes | Custom handler + injected zsh/bash hooks |
 | OSC 9 notifications | Yes | ConEmu/iTerm style toast → macOS notification |
 | OSC 9;4 progress | Yes | Tab progress bar |
 | OSC 777;notify | Yes | urxvt style title;body → macOS notification |
-| Kitty graphics protocol | No | Not supported by xterm.js |
+| Kitty graphics protocol | Yes | Custom APC interceptor + overlay renderer: PNG/RGB/RGBA, direct + file + temp-file media, chunking, zlib, queries (kitten icat works), delete; video via rapid frame replacement (mpv --vo=kitty, timg) |
 | Kitty keyboard protocol | No | Not supported by xterm.js |
 | Ligatures | No | Not supported with the WebGL renderer |
 
@@ -205,13 +219,11 @@ unfocused, so foreground work never spams you.
 ## Known limits
 
 - macOS only (universal binary: Apple silicon + Intel). Vibrancy, lsof, osascript, and `open` are macOS paths; Linux is planned for v0.3.
-- Shell integration is zsh only; bash/fish sessions still work but lose
+- Shell integration is zsh + bash; fish sessions still work but lose
   prompt marks, duration chips, and OSC 7 (cwd falls back to lsof polling).
-- No splits yet (planned; the largest structural gap vs Ghostty).
-- Settings cover text size, glass darkness, and the work glow; fonts,
-  color themes, and hotkeys are not yet configurable.
-- Ad-hoc code signing: fine locally, needs Developer ID + notarization to
-  distribute.
+- Kitty graphics: no Unicode placeholders, animation frames (a=f), or
+  shared-memory transfers; kitty keyboard protocol still unsupported.
+- Ligatures are not supported with the WebGL renderer.
 
 ## Architecture notes
 

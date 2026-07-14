@@ -73,58 +73,132 @@
       </div>
     </div>
 
-    <!-- Settings popover (Cmd+,). -->
-    <div id="settings" class="hidden">
-      <div class="set-head">Appearance</div>
-      <div class="theme-grid" id="set-themes"></div>
-      <div class="set-row">
-        <span class="set-label">Text size</span>
-        <input type="range" id="set-font" min="10" max="20" step="0.5" />
-        <span class="set-val" id="set-font-val"></span>
+    <!-- Settings modal (Cmd+,): System Settings style sidebar + pane. -->
+    <div id="settings" class="overlay hidden">
+      <div class="settings-modal">
+        <button id="set-close" title="Close (Esc)">
+          <svg viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg>
+        </button>
+        <nav class="set-side">
+          <div class="set-search">
+            <span class="set-search-icon">⌕</span>
+            <input id="set-search" placeholder="Search" spellcheck="false" />
+          </div>
+          <button class="set-nav sel" data-pane="appearance"><span class="set-chip" style="background:#9d63e8"><svg viewBox="0 0 256 256"><path d="M200.77,53.89A103.27,103.27,0,0,0,128,24h-1.07A104,104,0,0,0,24,128c0,43,26.58,79.06,69.36,94.17A32,32,0,0,0,136,192a16,16,0,0,1,16-16h46.21a31.81,31.81,0,0,0,31.2-24.88,104.43,104.43,0,0,0,2.59-24A103.28,103.28,0,0,0,200.77,53.89ZM84,168a12,12,0,1,1,12-12A12,12,0,0,1,84,168Zm0-56a12,12,0,1,1,12-12A12,12,0,0,1,84,112Zm44-24a12,12,0,1,1,12-12A12,12,0,0,1,128,88Zm44,24a12,12,0,1,1,12-12A12,12,0,0,1,172,112Z"/></svg></span>Appearance</button>
+          <button class="set-nav" data-pane="terminal"><span class="set-chip" style="background:#2f81f7"><svg viewBox="0 0 256 256"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm-91,94.25-40,32a8,8,0,1,1-10-12.5L107.19,128,75,102.25a8,8,0,1,1,10-12.5l40,32a8,8,0,0,1,0,12.5ZM176,168H136a8,8,0,0,1,0-16h40a8,8,0,0,1,0,16Z"/></svg></span>Terminal</button>
+          <button class="set-nav" data-pane="editor"><span class="set-chip" style="background:#2da44e"><svg viewBox="0 0 256 256"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40ZM92.8,145.6a8,8,0,1,1-9.6,12.8l-32-24a8,8,0,0,1,0-12.8l32-24a8,8,0,0,1,9.6,12.8L69.33,128Zm58.89-71.4-32,112a8,8,0,1,1-15.38-4.4l32-112a8,8,0,0,1,15.38,4.4Zm53.11,60.2-32,24a8,8,0,0,1-9.6-12.8L186.67,128,163.2,110.4a8,8,0,1,1,9.6-12.8l32,24a8,8,0,0,1,0,12.8Z"/></svg></span>Editor</button>
+          <button class="set-nav" data-pane="updates"><span class="set-chip" style="background:#ff9f0a"><svg viewBox="0 0 256 256"><path d="M224,48V96a8,8,0,0,1-8,8H168a8,8,0,0,1-5.66-13.66L180.65,72a79.48,79.48,0,0,0-54.72-22.09h-.45A79.52,79.52,0,0,0,69.59,72.71,8,8,0,0,1,58.41,61.27,96,96,0,0,1,192,60.7l18.36-18.36A8,8,0,0,1,224,48ZM186.41,183.29A80,80,0,0,1,75.35,184l18.31-18.31A8,8,0,0,0,88,152H40a8,8,0,0,0-8,8v48a8,8,0,0,0,13.66,5.66L64,195.3a95.42,95.42,0,0,0,66,26.76h.53a95.36,95.36,0,0,0,67.07-27.33,8,8,0,0,0-11.18-11.44Z"/></svg></span>Updates</button>
+          <button class="set-nav" data-pane="shortcuts"><span class="set-chip" style="background:#e85aad"><svg viewBox="0 0 256 256"><path d="M116,116h24v24H116ZM86,72a14,14,0,0,0,0,28h14V86A14,14,0,0,0,86,72Zm98,14a14,14,0,0,0-28,0v14h14A14,14,0,0,0,184,86ZM72,170a14,14,0,0,0,28,0V156H86A14,14,0,0,0,72,170ZM224,48V208a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32H208A16,16,0,0,1,224,48Zm-68,92V116h14a30,30,0,1,0-30-30v14H116V86a30,30,0,1,0-30,30h14v24H86a30,30,0,1,0,30,30V156h24v14a30,30,0,1,0,30-30Zm0,30a14,14,0,1,0,14-14H156Z"/></svg></span>Shortcuts</button>
+          <button class="set-nav" data-pane="about"><span class="set-chip" style="background:#8e8e93"><svg viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-4,48a12,12,0,1,1-12,12A12,12,0,0,1,124,72Zm12,112a16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40a8,8,0,0,1,0,16Z"/></svg></span>About</button>
+          <button id="set-update-side" title="Check for updates">Check for updates</button>
+        </nav>
+        <div class="set-pane">
+          <section class="set-section" data-pane="appearance">
+            <div class="set-title">Appearance</div>
+            <div class="set-sub">Theme, glass and glow for the whole window.</div>
+            <div class="theme-grid" id="set-themes"></div>
+            <div class="set-group">
+              <div class="set-row">
+                <span class="set-label">Glass tint</span>
+                <input type="range" id="set-tint" min="0" max="80" step="5" />
+                <span class="set-val" id="set-tint-val"></span>
+              </div>
+              <div class="set-row">
+                <span class="set-label">Work glow</span>
+                <label class="switch"><input type="checkbox" id="set-glow" /><span class="sw-track"></span><span class="sw-knob"></span></label>
+              </div>
+            </div>
+            <button id="set-import">Import theme (.itermcolors / Ghostty)…</button>
+            <input type="file" id="set-import-file" style="display:none" />
+            <button id="set-reset">Reset to defaults</button>
+          </section>
+          <section class="set-section hidden" data-pane="terminal">
+            <div class="set-title">Terminal</div>
+            <div class="set-sub">Text and cursor.</div>
+            <div class="set-group">
+              <div class="set-row">
+                <span class="set-label">Font</span>
+                <select id="set-font-family">
+                  <option value="jetbrains">JetBrains Mono</option>
+                  <option value="fira">Fira Code</option>
+                  <option value="iosevka">Iosevka</option>
+                  <option value="monocraft">Monocraft</option>
+                </select>
+              </div>
+              <div class="set-row">
+                <span class="set-label">Add your own font</span>
+                <button id="set-font-add-file" class="set-mini-btn">Import file…</button>
+              </div>
+              <div class="set-row">
+                <input id="set-font-sys" class="set-text" placeholder="Installed font name, e.g. SF Mono" spellcheck="false" />
+                <button id="set-font-sys-add" class="set-mini-btn">Add</button>
+              </div>
+              <div id="set-user-fonts"></div>
+              <input type="file" id="set-font-file" accept=".ttf,.otf,.woff,.woff2" style="display:none" />
+              <div class="set-row">
+                <span class="set-label">Text size</span>
+                <input type="range" id="set-font" min="10" max="20" step="0.5" />
+                <span class="set-val" id="set-font-val"></span>
+              </div>
+              <div class="set-row">
+                <span class="set-label">Cursor</span>
+                <select id="set-cursor">
+                  <option value="bar">bar</option>
+                  <option value="block">block</option>
+                  <option value="underline">underline</option>
+                </select>
+              </div>
+              <div class="set-row">
+                <span class="set-label">Cursor blink</span>
+                <label class="switch"><input type="checkbox" id="set-blink" /><span class="sw-track"></span><span class="sw-knob"></span></label>
+              </div>
+            </div>
+          </section>
+          <section class="set-section hidden" data-pane="editor">
+            <div class="set-title">Editor</div>
+            <div class="set-sub">Where Cmd+click opens file paths.</div>
+            <div class="set-group">
+              <div class="set-row">
+                <span class="set-label">Open files in</span>
+                <select id="set-editor">
+                  <option value="code">VS Code</option>
+                  <option value="cursor">Cursor</option>
+                  <option value="zed">Zed</option>
+                  <option value="open">System default</option>
+                </select>
+              </div>
+            </div>
+          </section>
+          <section class="set-section hidden" data-pane="updates">
+            <div class="set-title">Updates</div>
+            <div class="set-sub">Updates install in place; your session restores.</div>
+            <div class="set-group">
+              <div class="set-row">
+                <span class="set-label">Version</span>
+                <span class="set-val set-val-wide" id="set-version"></span>
+              </div>
+            </div>
+            <button id="set-update">Check for updates</button>
+          </section>
+          <section class="set-section hidden" data-pane="shortcuts">
+            <div class="set-title">Shortcuts</div>
+            <div class="set-sub">Click a shortcut, then press the new keys. Esc cancels.</div>
+            <div id="set-keys"></div>
+            <button id="set-keys-reset">Reset shortcuts to defaults</button>
+          </section>
+          <section class="set-section hidden" data-pane="about">
+            <div class="set-title">About</div>
+            <div class="set-sub">PRISM: the agent-aware glass terminal for macOS.</div>
+            <div class="set-group">
+              <div class="set-row"><span class="set-label">Terminal engine</span><span class="set-val set-val-wide">xterm.js 6 (WebGL)</span></div>
+              <div class="set-row"><span class="set-label">Shell integration</span><span class="set-val set-val-wide">zsh + bash, automatic</span></div>
+              <div class="set-row"><span class="set-label">Nested shells</span><span class="set-val set-val-wide">source "$PRISM_INTEGRATION_DIR/prism.zsh"</span></div>
+              <div class="set-row"><span class="set-label">Made by</span><span class="set-val set-val-wide">Nick Coma</span></div>
+            </div>
+            <button id="set-app-reset">Reset PRISM (erase session + settings)…</button>
+          </section>
+        </div>
       </div>
-      <div class="set-row">
-        <span class="set-label">Glass tint</span>
-        <input type="range" id="set-tint" min="0" max="80" step="5" />
-        <span class="set-val" id="set-tint-val"></span>
-      </div>
-      <button id="set-import">Import theme (.itermcolors / Ghostty)…</button>
-      <input type="file" id="set-import-file" style="display:none" />
-      <div class="set-row">
-        <span class="set-label">Editor</span>
-        <select id="set-editor">
-          <option value="code">VS Code</option>
-          <option value="cursor">Cursor</option>
-          <option value="zed">Zed</option>
-          <option value="open">System default</option>
-        </select>
-      </div>
-      <div class="set-row">
-        <span class="set-label">Cursor</span>
-        <select id="set-cursor">
-          <option value="bar">bar</option>
-          <option value="block">block</option>
-          <option value="underline">underline</option>
-        </select>
-      </div>
-      <div class="set-row">
-        <span class="set-label">Cursor blink</span>
-        <input type="checkbox" id="set-blink" />
-        <span class="set-val"></span>
-      </div>
-      <div class="set-row">
-        <span class="set-label">Work glow</span>
-        <input type="checkbox" id="set-glow" />
-        <span class="set-val"></span>
-      </div>
-      <button id="set-reset">Reset to defaults</button>
-      <div class="set-head set-keys-head">Updates</div>
-      <div class="set-row">
-        <span class="set-label">Version</span>
-        <span class="set-val" id="set-version" style="width:auto; text-align:left;"></span>
-      </div>
-      <button id="set-update">Check for updates</button>
-      <div class="set-head set-keys-head">Shortcuts</div>
-      <div id="set-keys"></div>
     </div>
 
     <!-- Scrollback search (Cmd+F). -->
