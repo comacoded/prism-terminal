@@ -170,6 +170,15 @@
       <div class="latest" id="latest">Latest release: <strong id="latest-ver">…</strong></div>
       <p>PRISM updates itself. Install new versions from <strong>Settings → Updates</strong>. Recent releases:</p>
 
+      <h3>0.3.0 <span class="cl-tag">grids + graphics</span></h3>
+      <ul>
+        <li><strong>Grid split layouts</strong>: vertical and horizontal splits mix and nest (up to six panes per tab). Split from <kbd>⌘D</kbd> / <kbd>⇧⌘D</kbd>, the tab's right-click menu, or drag a tab onto any edge of a pane to drop it in as a split. Layouts persist across launches.</li>
+        <li><strong>Kitty graphics protocol</strong>: images and video render inline in the terminal — <code>kitten icat</code>, <code>mpv --vo=kitty</code>, <code>timg</code>, and friends.</li>
+        <li><strong>Custom fonts</strong>: import a font file or use any installed font by name, alongside the bundled four.</li>
+        <li><strong>bash integration</strong>: bash sessions now get prompt marks, telemetry, and the <code>prism</code> CLI automatically; nested shells can hook in via <code>$PRISM_INTEGRATION_DIR</code>.</li>
+        <li>Settings redesign with remappable shortcuts, a global summon key, and factory reset; titlebar layout fix for crowded tab strips.</li>
+      </ul>
+
       <h3>0.2.7 <span class="cl-tag">refinement</span></h3>
       <ul>
         <li>Session restore now reopens your tabs, splits, groups, names, and directories with fresh prompts, and no longer replays old terminal output (which was misleading, especially with full-screen agents that clear the screen on start).</li>
@@ -331,7 +340,7 @@
 
     <section id="shell">
       <h2>Shell integration</h2>
-      <p>PRISM injects zsh integration automatically via <code>ZDOTDIR</code>: it sources your real config untouched, then adds hooks. No dotfile edits, and nested shells or other terminals are unaffected.</p>
+      <p>PRISM injects shell integration automatically — zsh via <code>ZDOTDIR</code>, bash via an init file — sourcing your real config untouched before adding hooks. No dotfile edits, and other terminals are unaffected. Nested shells can load it manually: <code>source "$PRISM_INTEGRATION_DIR/prism.zsh"</code> (or <code>prism.bash</code>).</p>
       <h3>What it provides</h3>
       <table>
         <tr><th>Emits</th><th>Powers</th></tr>
@@ -342,7 +351,7 @@
       </table>
       <h3>Environment</h3>
       <p>Every PRISM shell gets <code>TERM=xterm-256color</code>, <code>COLORTERM=truecolor</code>, <code>TERM_PROGRAM=PRISM</code>, <code>TERM_PROGRAM_VERSION</code>, and <code>PRISM_SOCKET</code>.</p>
-      <div class="note"><p><strong>bash or fish?</strong> Everything works, but prompt marks, command telemetry, and the <code>prism</code> function are zsh-only today. The footer falls back to slower cwd polling.</p></div>
+      <div class="note"><p><strong>fish?</strong> Everything works, but prompt marks, command telemetry, and the <code>prism</code> function are zsh + bash only today. The footer falls back to slower cwd polling.</p></div>
     </section>
 
     <section id="api">
@@ -397,7 +406,7 @@
       <h3>The glow never appears</h3>
       <p>The glow tracks Claude Code and Codex as the foreground process of a pane. Check the Work glow toggle in settings, and note it only shows for the <em>active</em> tab; background tabs show the violet dot instead.</p>
       <h3>Prompt jumping / duration chips don't work</h3>
-      <p>Those need the zsh integration, which applies to shells started inside PRISM. If you exec'd into bash or fish, they're off (see <a href="#shell">Shell integration</a>).</p>
+      <p>Those need the shell integration (zsh or bash), which applies to shells started inside PRISM. If you exec'd into fish, they're off (see <a href="#shell">Shell integration</a>).</p>
       <h3>The global hotkey does nothing</h3>
       <p><kbd>⌃`</kbd> is registered system-wide at launch; another app may own it already.</p>
       <h3>Where is my data?</h3>
@@ -436,7 +445,7 @@
     if (el && m.version) el.textContent = 'v' + m.version;
   }).catch(() => {
     const el = document.getElementById('latest-ver');
-    if (el) el.textContent = 'v0.2.4';
+    if (el) el.textContent = 'v0.3.0';
   });
 </script>
 </body>
