@@ -40,16 +40,21 @@ rendering, portable-pty, zsh shell integration injected via ZDOTDIR.
 
 - **Tabs** with native-feel pills in the titlebar (Cmd+T new, Cmd+W close,
   Cmd+Shift+{ / } to cycle, Cmd+1..9 direct jump).
-- **Split panes.** Cmd+D splits right, Cmd+Shift+D splits down (up to four
-  panes per tab, one direction per tab in v1). Click a pane to focus it;
-  the focused pane wears an accent border, gets Cmd+W'd first, and drives
-  the footer, artifacts rail, and search. Drag the divider to resize.
-  Cmd+Shift+Enter zooms the focused pane to fill the tab (toggle).
-  Cmd+Shift+B broadcasts typed input to every pane in the tab. Cmd+Shift+W
-  closes just the focused split (never the whole tab); right-click a split
-  pane to move it out into its own tab. Every pane
-  is its own shell with independent agent detection, so the glow and tab
-  state aggregate across panes.
+- **Split panes and grids.** Cmd+D splits the focused pane right,
+  Cmd+Shift+D splits it down; directions mix and nest freely (tmux-style
+  trees), so 2x2 grids and asymmetric layouts work, up to six panes per
+  tab. Right-click a tab for the same splits, or drag a tab onto any edge
+  of any pane in the visible tab: a highlight previews the half it will
+  occupy, and dropping merges it into the layout right there. Click a pane
+  to focus it; the focused pane wears an accent border, gets Cmd+W'd first,
+  and drives the footer, artifacts rail, and search. Drag any divider to
+  resize its two neighbors. Cmd+Shift+Enter zooms the focused pane to fill
+  the tab (toggle). Cmd+Shift+B broadcasts typed input to every pane in the
+  tab. Cmd+Shift+W closes just the focused split (never the whole tab);
+  right-click a split pane to move it out into its own tab. Grid layouts
+  and pane sizes persist across launches. Every pane is its own shell with
+  independent agent detection, so the glow and tab state aggregate across
+  panes.
 - **Needs-you notifications.** When an agent stops generating while you are
   in another tab or app, PRISM notifies you, pulses that tab's dot amber,
   and badges the Dock with the count of waiting agents.

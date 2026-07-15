@@ -106,7 +106,7 @@ const WORK_HOLD_MS = 2500; // bridge spinner redraws so the glow never flickers
 const WORK_SCAN_MS = 400;
 const NOTIFY_CMD_MS = 15000; // commands longer than this notify when you're away
 const MAX_RESTORE_TABS = 8;
-const MAX_PANES = 4;
+const MAX_PANES = 6;
 let HOME = '';
 
 const tabsEl = document.getElementById('tabs');
@@ -325,9 +325,10 @@ const FIXED_KEYS = [
   ['⌘ click path', 'Open file in editor'],
   ['⌥ scroll', 'Fast scroll'],
   ['right-click pane', 'Move pane to new tab'],
-  ['double-click tab', 'Rename tab'], ['right-click tab', 'Group / tab menu'],
+  ['double-click tab', 'Rename tab'], ['right-click tab', 'Split / group / tab menu'],
   ['click chip', 'Collapse or expand group'], ['right-click chip', 'Edit group'],
   ['drag tab', 'Reorder; drop into a group to join'],
+  ['drag tab → pane', 'Split with the visible tab (drop on an edge)'],
 ];
 function hotkeyOf(id) { return settings.keys[id] || DEFAULT_KEYMAP[id]; }
 function comboOf(e) {
@@ -1259,7 +1260,7 @@ async function createPane(tab, startCwd) {
   }
 
   const pane = {
-    id, term, fit, search, el, tab,
+    id, term, fit, search, el, tab, parent: null, // parent = split node, null at layout root
     exited: false, fgProcess: '', agentActive: false,
     cwd: startCwd || '', branch: '', burstActive: false, workSeen: 0,
     marks: [], cmdStart: null, lastCmd: null, artifacts: [],
@@ -1311,16 +1312,47 @@ function setActivePane(tab, pane) {
     pane.term.focus();
   }
 }
-function syncDividers(t) {
-  t.paneEl.querySelectorAll('.split-divider').forEach((d) => d.remove());
-  if (t.panes.length < 2) return;
-  for (let i = 0; i < t.panes.length - 1; i++) {
+// Splits are a tree: a tab's layout is either a pane (leaf) or a split node
+// { split: 'row'|'column', el, children, parent } whose children are panes or
+// further nodes. Mixed directions nest, so 2x2 grids and tmux-style layouts
+// work. renderLayout() re-syncs the DOM (order + dividers) from the tree.
+function isPane(n) { return !!n.term; }
+function makeNode(dir) {
+  const el = document.createElement('div');
+  el.className = 'split-box';
+  el.style.flexDirection = dir;
+  return { split: dir, el, children: [], parent: null };
+}
+function firstPane(n) { return isPane(n) ? n : firstPane(n.children[0]); }
+function renderLayout(tab) {
+  if (!tab.layout) return;
+  tab.paneEl.querySelectorAll('.split-divider').forEach((d) => d.remove());
+  const place = (n, parentEl) => {
+    parentEl.appendChild(n.el);
+    if (isPane(n)) return;
+    n.el.style.flexDirection = n.split;
+    for (const c of n.children) place(c, n.el);
+    syncNodeDividers(tab, n);
+  };
+  place(tab.layout, tab.paneEl);
+  tab.paneEl.style.flexDirection = isPane(tab.layout) ? 'row' : tab.layout.split;
+  const single = isPane(tab.layout);
+  tab.paneEl.classList.toggle('multi', !single);
+  if (single) {
+    tab.broadcast = false;
+    tab.paneEl.classList.remove('broadcast');
+    tab.layout.el.style.flexGrow = '';
+  }
+}
+function syncNodeDividers(tab, node) {
+  for (let i = 0; i < node.children.length - 1; i++) {
     const div = document.createElement('div');
-    div.className = 'split-divider';
+    div.className = 'split-divider ' + (node.split === 'row' ? 'h' : 'v');
     div.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      const col = t.splitDir === 'column';
-      const prev = t.panes[i], next = t.panes[i + 1];
+      const col = node.split === 'column';
+      const prev = node.children[i], next = node.children[i + 1];
+      if (!prev || !next) return;
       const pr = prev.el.getBoundingClientRect(), nr = next.el.getBoundingClientRect();
       const total = (col ? pr.height + nr.height : pr.width + nr.width);
       const growSum = (parseFloat(prev.el.style.flexGrow) || 1) + (parseFloat(next.el.style.flexGrow) || 1);
@@ -1331,34 +1363,90 @@ function syncDividers(t) {
         const frac = Math.max(0.15, Math.min(0.85, pos / total));
         prev.el.style.flexGrow = (frac * growSum).toFixed(3);
         next.el.style.flexGrow = ((1 - frac) * growSum).toFixed(3);
-        if (!raf) raf = requestAnimationFrame(() => { raf = null; fitTab(t); });
+        if (!raf) raf = requestAnimationFrame(() => { raf = null; fitTab(tab); });
       };
       const up = () => {
         window.removeEventListener('mousemove', move);
         window.removeEventListener('mouseup', up);
-        fitTab(t);
+        fitTab(tab);
       };
       window.addEventListener('mousemove', move);
       window.addEventListener('mouseup', up);
     });
-    t.panes[i].el.after(div);
+    node.children[i].el.after(div);
   }
+}
+// Put `addition` beside `target`: joins the parent when directions match,
+// otherwise wraps the target in a new split node.
+function placePane(target, addition, dir, before) {
+  const tab = target.tab;
+  const parent = target.parent;
+  if (parent && parent.split === dir) {
+    const idx = parent.children.indexOf(target);
+    parent.children.splice(before ? idx : idx + 1, 0, addition);
+    addition.parent = parent;
+  } else {
+    const node = makeNode(dir);
+    node.el.style.flexGrow = target.el.style.flexGrow || '';
+    if (parent) {
+      parent.children[parent.children.indexOf(target)] = node;
+      node.parent = parent;
+    } else {
+      tab.layout = node;
+    }
+    target.el.style.flexGrow = '';
+    node.children.push(target, addition);
+    if (before) node.children.reverse();
+    target.parent = node;
+    addition.parent = node;
+  }
+  addition.el.style.flexGrow = '';
+  renderLayout(tab);
+}
+// Pull a pane out of the tree, collapsing now-single-child wrappers.
+function detachPane(pane) {
+  const tab = pane.tab;
+  const parent = pane.parent;
+  pane.parent = null;
+  pane.el.remove();
+  if (!parent) { tab.layout = null; return; }
+  parent.children.splice(parent.children.indexOf(pane), 1);
+  if (parent.children.length > 1) { renderLayout(tab); return; }
+  const child = parent.children[0];
+  const gp = parent.parent;
+  child.el.style.flexGrow = parent.el.style.flexGrow || '';
+  parent.el.remove();
+  if (gp) {
+    gp.children[gp.children.indexOf(parent)] = child;
+    child.parent = gp;
+  } else {
+    tab.layout = child;
+    child.parent = null;
+  }
+  renderLayout(tab);
+}
+// Zoom hides every cell (and box) off the focused pane's ancestor path.
+function applyZoom(t) {
+  t.paneEl.classList.toggle('zoomed', t.zoom);
+  const keep = new Set();
+  if (t.zoom) { let n = t.active; while (n) { keep.add(n); n = n.parent; } }
+  const walk = (n) => {
+    n.el.classList.toggle('z-hide', t.zoom && !keep.has(n));
+    if (!isPane(n)) n.children.forEach(walk);
+  };
+  if (t.layout) walk(t.layout);
+  fitTab(t);
 }
 function exitZoom(t) {
   if (!t.zoom) return;
   t.zoom = false;
-  t.paneEl.classList.remove('zoomed');
-  t.panes.forEach((p) => p.el.classList.remove('zoomed-cell'));
-  fitTab(t);
+  applyZoom(t);
 }
 function toggleZoom() {
   const t = activeTab;
   if (!t || t.panes.length < 2) return;
-  if (t.zoom) { exitZoom(t); return; }
-  t.zoom = true;
-  t.paneEl.classList.add('zoomed');
-  t.panes.forEach((p) => p.el.classList.toggle('zoomed-cell', p === t.active));
-  fitTab(t);
+  t.zoom = !t.zoom;
+  applyZoom(t);
 }
 function toggleBroadcast() {
   const t = activeTab;
@@ -1367,19 +1455,17 @@ function toggleBroadcast() {
   t.paneEl.classList.toggle('broadcast', t.broadcast);
   renderFooter();
 }
+// Cmd+D / Cmd+Shift+D: split the focused pane (any direction, grids nest).
 async function splitPane(dir) {
   const t = activeTab;
   if (!t || !ready) return;
-  if (t.panes.length >= MAX_PANES) return;
-  if (t.splitDir && t.splitDir !== dir) return; // v1: one direction per tab
+  const target = t.active;
+  if (!target || t.panes.length >= MAX_PANES) return;
   exitZoom(t);
-  const pane = await createPane(t, t.active?.cwd || null);
+  const pane = await createPane(t, target.cwd || null);
   if (!pane) return;
-  t.splitDir = t.splitDir || dir;
-  t.paneEl.classList.add('multi');
-  t.paneEl.classList.toggle('split-column', t.splitDir === 'column');
   t.panes.push(pane);
-  syncDividers(t);
+  placePane(target, pane, dir, false);
   setActivePane(t, pane);
   fitTab(t);
   refreshTab(t);
@@ -1388,17 +1474,10 @@ function closePane(tab, pane) {
   exitZoom(tab);
   if (!pane.exited) invoke('pty_kill', { id: pane.id });
   pane.term.dispose();
-  pane.el.remove();
   const idx = tab.panes.indexOf(pane);
   if (idx !== -1) tab.panes.splice(idx, 1);
+  detachPane(pane);
   if (!tab.panes.length) { removeTab(tab); return; }
-  if (tab.panes.length === 1) {
-    tab.splitDir = null;
-    tab.paneEl.classList.remove('multi', 'split-column', 'broadcast');
-    tab.broadcast = false;
-    tab.panes[0].el.style.flexGrow = '';
-  }
-  syncDividers(tab);
   if (tab.active === pane) setActivePane(tab, tab.panes[Math.max(0, idx - 1)]);
   fitTab(tab);
   refreshTab(tab);
@@ -1578,11 +1657,63 @@ geUngroup.addEventListener('mousedown', (e) => {
 
 // --- Tab drag: reorder, and join/leave groups by where you drop ---------------
 const dropIndicator = document.getElementById('drop-indicator');
+const splitDropEl = document.getElementById('split-drop');
 let drag = null;
 function beginTabDrag(tab, e) {
-  drag = { tab, startX: e.clientX, startY: e.clientY, started: false, overChip: null, insert: null };
+  // target = the tab whose panes are on screen (activation happens on mouseup,
+  // so dragging a background tab leaves the current tab visible under it)
+  drag = {
+    tab, startX: e.clientX, startY: e.clientY, started: false,
+    overChip: null, insert: null,
+    target: activeTab !== tab ? activeTab : null,
+    splitTarget: null, splitDir: null, splitBefore: false,
+  };
   window.addEventListener('mousemove', onTabDragMove);
   window.addEventListener('mouseup', endTabDrag, { once: true });
+}
+// Dragging over a pane shows which half of it the dropped tab would occupy.
+function updateSplitDrop(e) {
+  const d = drag;
+  d.splitTarget = null;
+  d.splitDir = null;
+  const t = d.target;
+  if (!t || !tabs.includes(t) || d.tab.panes.length !== 1 || t.panes.length >= MAX_PANES) {
+    splitDropEl.classList.add('hidden');
+    return false;
+  }
+  let hov = null;
+  for (const p of t.panes) {
+    const r = p.el.getBoundingClientRect();
+    if (r.width && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+      hov = { p, r };
+      break;
+    }
+  }
+  if (!hov) {
+    splitDropEl.classList.add('hidden');
+    return false;
+  }
+  const dx = (e.clientX - hov.r.left) / hov.r.width;
+  const dy = (e.clientY - hov.r.top) / hov.r.height;
+  const zone = [['left', dx], ['right', 1 - dx], ['top', dy], ['bottom', 1 - dy]]
+    .sort((a, b) => a[1] - b[1])[0][0];
+  d.splitTarget = hov.p;
+  d.splitDir = zone === 'left' || zone === 'right' ? 'row' : 'column';
+  d.splitBefore = zone === 'left' || zone === 'top';
+  const half = { left: hov.r.left, top: hov.r.top, width: hov.r.width, height: hov.r.height };
+  if (d.splitDir === 'row') {
+    half.width /= 2;
+    if (zone === 'right') half.left += half.width;
+  } else {
+    half.height /= 2;
+    if (zone === 'bottom') half.top += half.height;
+  }
+  splitDropEl.style.left = `${half.left}px`;
+  splitDropEl.style.top = `${half.top}px`;
+  splitDropEl.style.width = `${half.width}px`;
+  splitDropEl.style.height = `${half.height}px`;
+  splitDropEl.classList.remove('hidden');
+  return true;
 }
 function onTabDragMove(e) {
   if (!drag) return;
@@ -1591,6 +1722,14 @@ function onTabDragMove(e) {
     drag.started = true;
     document.body.classList.add('tab-dragging');
     drag.tab.tabEl.classList.add('drag-src');
+  }
+  // below the strip: offer drop-to-split on the visible tab's panes
+  if (updateSplitDrop(e)) {
+    for (const g of groups.values()) g.chipEl?.classList.remove('drop-target');
+    dropIndicator.style.display = 'none';
+    drag.overChip = null;
+    drag.insert = null;
+    return;
   }
   // hovering a group chip means "drop into this group"
   drag.overChip = null;
@@ -1632,10 +1771,18 @@ function endTabDrag() {
   drag = null;
   if (!d) return;
   dropIndicator.style.display = 'none';
+  splitDropEl.classList.add('hidden');
   document.body.classList.remove('tab-dragging');
   d.tab.tabEl.classList.remove('drag-src');
   for (const g of groups.values()) g.chipEl?.classList.remove('drop-target');
-  if (!d.started) return;
+  if (!d.started) {
+    if (tabs.includes(d.tab)) activateTab(d.tab); // plain click: activate on mouseup
+    return;
+  }
+  if (d.splitTarget && d.splitDir) {
+    mergeTabAsSplit(d.tab, d.target, d.splitTarget, d.splitDir, d.splitBefore);
+    return;
+  }
   const tab = d.tab;
   const oldGid = tab.groupId;
   if (d.overChip) {
@@ -1657,6 +1804,7 @@ function endTabDrag() {
   }
   if (tab.groupId !== oldGid) dropGroupIfEmpty(oldGid);
   renderStrip();
+  activateTab(tab); // a dropped tab ends up active, like Chrome
   persistSession();
 }
 
@@ -1710,6 +1858,12 @@ function openTabMenu(tab, x, y) {
   closeGroupEditor();
   ctxMenu.replaceChildren();
   ctxMenu.appendChild(ctxItem('Rename tab', () => startRename(tab)));
+  // Splits act on the clicked tab's focused pane (activating the tab first).
+  if (tab.panes.length < MAX_PANES && !tab.panes.every((p) => p.exited)) {
+    ctxMenu.appendChild(Object.assign(document.createElement('div'), { className: 'ctx-sep' }));
+    ctxMenu.appendChild(ctxItem('Split right', () => { activateTab(tab); splitPane('row'); }));
+    ctxMenu.appendChild(ctxItem('Split down', () => { activateTab(tab); splitPane('column'); }));
+  }
   ctxMenu.appendChild(Object.assign(document.createElement('div'), { className: 'ctx-sep' }));
   ctxMenu.appendChild(ctxItem('Add to new group', () => createGroupWith(tab)));
   for (const g of groups.values()) {
@@ -1753,7 +1907,7 @@ function newTabShell() {
   tabEl.append(dotEl, titleEl, closeEl, progEl);
 
   const tab = {
-    panes: [], active: null, splitDir: null, zoom: false, broadcast: false,
+    panes: [], active: null, layout: null, zoom: false, broadcast: false,
     paneEl, tabEl, titleEl, progEl,
     startTime: Date.now(), stateSince: Date.now(),
     groupId: null, railDismissed: false,
@@ -1764,7 +1918,8 @@ function newTabShell() {
 
   tabEl.addEventListener('mousedown', (e) => {
     if (closeEl.contains(e.target) || tab.renaming) return;
-    activateTab(tab);
+    // activation waits for mouseup (endTabDrag): a drag keeps the current
+    // tab visible so the dragged tab can be dropped into it as a split
     if (e.button === 0) beginTabDrag(tab, e);
   });
   closeEl.addEventListener('mousedown', (e) => { e.stopPropagation(); closeTab(tab); });
@@ -1784,6 +1939,8 @@ async function createTab(startCwd) {
     return;
   }
   tab.panes.push(pane);
+  tab.layout = pane;
+  renderLayout(tab);
   tab.active = pane;
   pane.el.classList.add('focused');
   refreshTab(tab);
@@ -1797,27 +1954,45 @@ function movePaneToNewTab(srcTab, pane) {
   exitZoom(srcTab);
   closeCtxMenu();
   srcTab.panes = srcTab.panes.filter((p) => p !== pane);
+  detachPane(pane); // collapses the source tree around the gap
   const dst = newTabShell();
   pane.tab = dst;
-  pane.el.classList.remove('zoomed-cell');
   pane.el.style.flexGrow = '';
-  dst.paneEl.appendChild(pane.el); // appendChild moves the node + its terminal
+  dst.layout = pane;
   dst.panes.push(pane);
+  renderLayout(dst); // appendChild moves the node + its terminal
   dst.active = pane;
   pane.el.classList.add('focused');
   refreshTab(dst);
-  // repair the source tab
-  if (srcTab.panes.length === 1) {
-    srcTab.splitDir = null;
-    srcTab.paneEl.classList.remove('multi', 'split-column', 'broadcast');
-    srcTab.broadcast = false;
-    srcTab.panes[0].el.style.flexGrow = '';
-  }
-  syncDividers(srcTab);
   if (!srcTab.panes.includes(srcTab.active)) setActivePane(srcTab, srcTab.panes[0]);
   fitTab(srcTab); // still visible here, so it refits before we switch away
   refreshTab(srcTab);
   activateTab(dst);
+  persistSession();
+}
+
+// Drop a dragged single-pane tab onto part of a pane in the visible tab:
+// its pane joins that tab's layout beside the drop target.
+function mergeTabAsSplit(srcTab, dstTab, targetPane, dir, before) {
+  if (!tabs.includes(dstTab) || !tabs.includes(srcTab) || srcTab === dstTab) return;
+  if (srcTab.panes.length !== 1 || dstTab.panes.length >= MAX_PANES) return;
+  if (!dstTab.panes.includes(targetPane)) return;
+  exitZoom(dstTab);
+  const pane = srcTab.panes[0];
+  srcTab.panes = [];
+  srcTab.layout = null;
+  pane.parent = null;
+  pane.tab = dstTab;
+  pane.el.classList.remove('focused');
+  pane.el.style.flexGrow = '';
+  dstTab.panes.push(pane);
+  placePane(targetPane, pane, dir, before);
+  removeTab(srcTab);
+  if (activeTab !== dstTab) activateTab(dstTab);
+  setActivePane(dstTab, pane);
+  fitTab(dstTab);
+  refreshTab(dstTab);
+  syncGlow();
   persistSession();
 }
 
@@ -1899,11 +2074,50 @@ function closeTab(tab) {
 // directories. We intentionally do NOT replay terminal contents — a saved
 // snapshot is a dead picture, not a live session, and full-screen agents
 // (Claude Code, vim) clear the screen on start anyway.
+function serLayout(n) {
+  if (isPane(n)) return { cwd: n.cwd || '', grow: n.el.style.flexGrow || undefined };
+  return { dir: n.split, grow: n.el.style.flexGrow || undefined, kids: n.children.map(serLayout) };
+}
+// Older sessions stored a flat pane list + one direction; lift into a tree.
+function legacyLayoutSpec(e) {
+  const kids = (e.panes || []).filter((p) => p.cwd).map((p) => ({ cwd: p.cwd }));
+  if (kids.length <= 1) return kids[0] || null;
+  return { dir: e.splitDir === 'column' ? 'column' : 'row', kids };
+}
+function specHasCwd(s) { return !!s && (s.kids ? s.kids.some(specHasCwd) : !!s.cwd); }
+async function buildLayoutSpec(tab, spec) {
+  if (!spec) return null;
+  if (!spec.kids) {
+    if (tab.panes.length >= MAX_PANES) return null;
+    const p = await createPane(tab, spec.cwd || null);
+    if (!p) return null;
+    p.el.style.flexGrow = spec.grow || '';
+    tab.panes.push(p);
+    return p;
+  }
+  const node = makeNode(spec.dir === 'column' ? 'column' : 'row');
+  node.el.style.flexGrow = spec.grow || '';
+  for (const k of spec.kids) {
+    const child = await buildLayoutSpec(tab, k);
+    if (!child) continue;
+    child.parent = node;
+    node.children.push(child);
+  }
+  if (!node.children.length) return null;
+  if (node.children.length === 1) { // spawn failures collapse the wrapper
+    const c = node.children[0];
+    c.parent = null;
+    c.el.style.flexGrow = node.el.style.flexGrow || '';
+    return c;
+  }
+  return node;
+}
 function buildSession() {
   return JSON.stringify({
     tabs: tabs.map((t) => ({
-      g: t.groupId, name: t.customTitle, splitDir: t.splitDir,
-      panes: t.panes.map((p) => ({ cwd: p.cwd || '' })),
+      g: t.groupId, name: t.customTitle,
+      layout: t.layout ? serLayout(t.layout) : null,
+      panes: t.panes.map((p) => ({ cwd: p.cwd || '' })), // downgrade safety
     })),
     groups: [...groups.values()].map(({ id, name, color, collapsed }) => ({ id, name, color, collapsed })),
     active: Math.max(0, tabs.indexOf(activeTab)),
@@ -1933,7 +2147,7 @@ async function startTabs() {
   }
   const entries = (saved?.tabs || (saved?.cwds || []).map((cwd) => ({ cwd, g: null })))
     .map((e) => ({ ...e, panes: e.panes?.length ? e.panes : [{ cwd: e.cwd || '' }] }))
-    .filter((e) => e.panes.some((p) => p.cwd))
+    .filter((e) => (e.layout ? specHasCwd(e.layout) : e.panes.some((p) => p.cwd)))
     .slice(0, MAX_RESTORE_TABS);
   if (!entries.length) { await createTab(); return; }
   if (Array.isArray(saved?.recentCmds)) recentCmds = saved.recentCmds.filter((r) => r && r.cmd);
@@ -1942,25 +2156,24 @@ async function startTabs() {
     groupCounter = Math.max(groupCounter, g.id);
   }
   for (const e of entries) {
-    const panes = e.panes.slice(0, MAX_PANES);
-    await createTab(panes[0].cwd);
-    const t = tabs[tabs.length - 1];
-    if (!t) continue;
-    for (const pe of panes.slice(1)) {
-      const p = await createPane(t, pe.cwd || null);
-      if (p) t.panes.push(p);
+    const t = newTabShell();
+    const built = await buildLayoutSpec(t, e.layout || legacyLayoutSpec(e));
+    if (!built) {
+      t.paneEl.remove();
+      t.tabEl.remove();
+      tabs.splice(tabs.indexOf(t), 1);
+      continue;
     }
-    if (t.panes.length > 1) {
-      t.splitDir = e.splitDir === 'column' ? 'column' : 'row';
-      t.paneEl.classList.add('multi');
-      t.paneEl.classList.toggle('split-column', t.splitDir === 'column');
-      syncDividers(t);
-      setActivePane(t, t.panes[0]);
-      fitTab(t);
-    }
+    t.layout = built;
+    built.parent = null;
+    renderLayout(t);
+    t.active = t.panes[0];
+    t.active.el.classList.add('focused');
+    refreshTab(t);
     if (e.g != null && groups.has(e.g)) t.groupId = e.g;
     if (e.name) { t.customTitle = e.name; t.titleEl.textContent = e.name; }
   }
+  if (!tabs.length) { await createTab(); return; }
   for (const [id] of groups) dropGroupIfEmpty(id); // groups whose tabs failed to spawn
   renderStrip();
   const idx = Math.min(saved.active ?? 0, tabs.length - 1);

@@ -124,6 +124,20 @@ body {
 }
 .tab.drag-src { opacity: 0.35; }
 body.tab-dragging { cursor: grabbing; }
+/* Drag-to-split: highlights the half of the hovered pane the drop lands in. */
+#split-drop {
+  position: fixed; z-index: 46;
+  border: 1.5px solid rgba(121, 184, 255, 0.85);
+  border-radius: 8px;
+  background: rgba(121, 184, 255, 0.16);
+  pointer-events: none;
+  transition: left 90ms ease, top 90ms ease, width 90ms ease, height 90ms ease;
+}
+#split-drop.hidden { display: none; }
+body.light #split-drop {
+  border-color: rgba(9, 105, 218, 0.75);
+  background: rgba(9, 105, 218, 0.12);
+}
 body.tab-dragging .tab { transition: none; } /* no width easing while slots shift */
 .group-chip.drop-target { border-color: #ffffff !important; }
 
@@ -220,27 +234,28 @@ body.tab-dragging .tab { transition: none; } /* no width easing while slots shif
 #main { display: flex; min-height: 0; }
 #panes { position: relative; flex: 1; min-width: 0; }
 .pane { position: absolute; inset: 0; padding: 4px 12px 6px; display: flex; gap: 8px; }
-.pane.split-column { flex-direction: column; }
 .pane.hidden { display: none; }
 .split-cell {
   flex: 1; min-width: 0; min-height: 0; position: relative;
   border: 1px solid transparent; border-radius: 8px;
 }
+/* Nested split container: grids are trees of these. */
+.split-box { flex: 1; min-width: 0; min-height: 0; display: flex; }
 .pane.multi .split-cell { border-color: rgba(255,255,255,0.09); padding: 4px; }
 .pane.multi .split-cell.focused { border-color: rgba(121,184,255,0.5); }
 .pane.multi { gap: 0; } /* dividers are the gap when split */
 .split-divider {
   flex: none; align-self: stretch;
-  width: 8px; position: relative; z-index: 3;
-  cursor: col-resize;
+  position: relative; z-index: 3;
 }
-.pane.split-column .split-divider { width: auto; height: 8px; cursor: row-resize; }
+.split-divider.h { width: 8px; cursor: col-resize; }
+.split-divider.v { height: 8px; cursor: row-resize; }
 .split-divider:hover::after, .split-divider:active::after {
   content: ''; position: absolute; inset: 3px 3.5px; border-radius: 2px;
   background: rgba(121, 184, 255, 0.45);
 }
-.pane.zoomed > .split-cell:not(.zoomed-cell) { display: none; }
-.pane.zoomed > .split-divider { display: none; }
+.z-hide { display: none !important; } /* zoom hides off-path cells and boxes */
+.pane.zoomed .split-divider { display: none; }
 .pane.broadcast .split-cell { border-color: rgba(255, 186, 113, 0.5); }
 .pane.broadcast .split-cell.focused { border-color: rgba(255, 186, 113, 0.85); }
 body.light .pane.multi .split-cell { border-color: rgba(0,0,0,0.14); }

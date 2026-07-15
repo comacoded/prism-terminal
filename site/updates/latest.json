@@ -1,15 +1,15 @@
 {
-  "version": "0.2.10",
-  "notes": "Fix: the titlebar action buttons (settings, artifacts) could be pushed offscreen when many tabs were open or the window was resized narrower. Tabs now compress and clip instead.",
-  "pub_date": "2026-07-14T19:36:20Z",
+  "version": "0.2.11",
+  "notes": "Grid split layouts: split any pane vertically or horizontally (Cmd+D / Cmd+Shift+D) with directions that mix and nest, up to six panes per tab. Split from the tab's right-click menu, or drag a tab onto any edge of a pane to drop it in as a split. Layouts and pane sizes persist.",
+  "pub_date": "2026-07-15T17:23:21Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNTF6SUZOOFFTYmlpZVIraHdKWmZRTWpmLytWUVYrdnVCNDBybTVlVkFtcTVuUW43aWRTa0ZXZ0pRL1FuNHNIRHNnY2lyZEE1SGYzZTNhdUl5QlpkUmdjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg0MDU3NzQ5CWZpbGU6UFJJU00uYXBwLnRhci5nego3UmVrZGdvU3lOL3FWeXVXbE9KVCtrWkgzWjBXY2YveUp3NHlDS3FQN3o4eUU2YWxGRGYwczM2bkM5eGpMSngzdEVuNDNRUzEzeEtOTXF4SVZZY1FBQT09Cg==",
-      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.2.10.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNXlhZ1FlK2VMVExGSHZFeHAyRWRsQStySlIwYWlERERoaVhVZ2N0SDViMklRaFVZRm4wSTJsZ01KMEVnSlgrY1FoKzhXS2ZVdzI4TmxnL3lqbFJTbkFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg0MTM2MTY5CWZpbGU6UFJJU00uYXBwLnRhci5negp3ZVRHcjFrRW95QVZwK3liQUgwVHpZVWdHRVRpenNFaS9ERm9lSnJqRVZLczZKZktyMjNqbkNXQlF0UGg1MGRlMTFHdnBqZ0NWWFFaUmJQQlBja0VEdz09Cg==",
+      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.2.11.app.tar.gz"
     },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNTF6SUZOOFFTYmlpZVIraHdKWmZRTWpmLytWUVYrdnVCNDBybTVlVkFtcTVuUW43aWRTa0ZXZ0pRL1FuNHNIRHNnY2lyZEE1SGYzZTNhdUl5QlpkUmdjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg0MDU3NzQ5CWZpbGU6UFJJU00uYXBwLnRhci5nego3UmVrZGdvU3lOL3FWeXVXbE9KVCtrWkgzWjBXY2YveUp3NHlDS3FQN3o4eUU2YWxGRGYwczM2bkM5eGpMSngzdEVuNDNRUzEzeEtOTXF4SVZZY1FBQT09Cg==",
-      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.2.10.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNXlhZ1FlK2VMVExGSHZFeHAyRWRsQStySlIwYWlERERoaVhVZ2N0SDViMklRaFVZRm4wSTJsZ01KMEVnSlgrY1FoKzhXS2ZVdzI4TmxnL3lqbFJTbkFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg0MTM2MTY5CWZpbGU6UFJJU00uYXBwLnRhci5negp3ZVRHcjFrRW95QVZwK3liQUgwVHpZVWdHRVRpenNFaS9ERm9lSnJqRVZLczZKZktyMjNqbkNXQlF0UGg1MGRlMTFHdnBqZ0NWWFFaUmJQQlBja0VEdz09Cg==",
+      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.2.11.app.tar.gz"
     }
   }
 }
