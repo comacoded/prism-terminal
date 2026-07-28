@@ -170,6 +170,12 @@
       <div class="latest" id="latest">Latest release: <strong id="latest-ver">…</strong></div>
       <p>PRISM updates itself. Install new versions from <strong>Settings → Updates</strong>. Recent releases:</p>
 
+      <h3>0.3.1 <span class="cl-tag">comfort</span></h3>
+      <ul>
+        <li><strong>Solid background</strong>: a new switch in Settings → Appearance turns off the glass entirely for a fully opaque window; the tint slider still shapes the translucent look when glass is on.</li>
+        <li><strong>Scroll speed</strong>: a slider in Settings → Terminal sets how fast the wheel scrolls (⌥ scroll stays proportionally faster).</li>
+      </ul>
+
       <h3>0.3.0 <span class="cl-tag">grids + graphics</span></h3>
       <ul>
         <li><strong>Grid split layouts</strong>: vertical and horizontal splits mix and nest (up to six panes per tab). Split from <kbd>⌘D</kbd> / <kbd>⇧⌘D</kbd>, the tab's right-click menu, or drag a tab onto any edge of a pane to drop it in as a split. Layouts persist across launches.</li>
@@ -445,7 +451,7 @@
     if (el && m.version) el.textContent = 'v' + m.version;
   }).catch(() => {
     const el = document.getElementById('latest-ver');
-    if (el) el.textContent = 'v0.3.0';
+    if (el) el.textContent = 'v0.3.1';
   });
 </script>
 </body>

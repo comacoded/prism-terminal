@@ -1,15 +1,15 @@
 {
-  "version": "0.3.0",
-  "notes": "PRISM 0.3: grid split layouts (mix vertical and horizontal splits, drag a tab onto any pane edge to drop it in), Kitty graphics protocol (inline images and video: kitten icat, mpv, timg), custom terminal fonts (import files or use any installed font), and automatic bash + nested-shell integration.",
-  "pub_date": "2026-07-15T17:35:40Z",
+  "version": "0.3.1",
+  "notes": "Solid background: turn off the glass for a fully opaque window (Settings > Appearance). New scroll speed slider (Settings > Terminal).",
+  "pub_date": "2026-07-28T17:36:32Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNXpXT0VMNkVIeWRYdTVPYmxiQVZhdDdUa0tLNUNjMUNhdXhSRms3TzFEc2hpdVRHRnJEMWZieFZLbHluQ1Y2cVpMa2tHLzB5a2xnclV5ZHNtRU1POEFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg0MTM2OTA5CWZpbGU6UFJJU00uYXBwLnRhci5negp4UTBIL2pidlQ3eXRHeTVXT0oyazAwMFlXRTk2b0FhNVhwMnZDWnJXS1hmL0ZiU2FaNTNpZXQvcWl6Sm1FdlFySXorRS9ZZk1lU2MycFhEazFkazhDUT09Cg==",
-      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.3.0.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNTFEelFTOUJuT3JLbWxDa29jQWFkc2hlckVEZXlydjBMOVNBdDM5RXkyY2w3aEVNVWZsaWVycVlEV0JSUXZ3QjRpRHdQRDcrMGZha2RTQ1Q2aXplVEFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1MjYwMTYwCWZpbGU6UFJJU00uYXBwLnRhci5negpJVU9MVjdmMmlJakhRQUFLYk04WklUa0ZIRVA1bWVvWTRmNHlFRHB6dEQyeVpRa1cvRlhoZ2czU0pGODhoRlNJSFZkdW0ybGVUUnlkdHZlb0NsdTRBdz09Cg==",
+      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.3.1.app.tar.gz"
     },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNXpXT0VMNkVIeWRYdTVPYmxiQVZhdDdUa0tLNUNjMUNhdXhSRms3TzFEc2hpdVRHRnJEMWZieFZLbHluQ1Y2cVpMa2tHLzB5a2xnclV5ZHNtRU1POEFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg0MTM2OTA5CWZpbGU6UFJJU00uYXBwLnRhci5negp4UTBIL2pidlQ3eXRHeTVXT0oyazAwMFlXRTk2b0FhNVhwMnZDWnJXS1hmL0ZiU2FaNTNpZXQvcWl6Sm1FdlFySXorRS9ZZk1lU2MycFhEazFkazhDUT09Cg==",
-      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.3.0.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNTFEelFTOUJuT3JLbWxDa29jQWFkc2hlckVEZXlydjBMOVNBdDM5RXkyY2w3aEVNVWZsaWVycVlEV0JSUXZ3QjRpRHdQRDcrMGZha2RTQ1Q2aXplVEFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1MjYwMTYwCWZpbGU6UFJJU00uYXBwLnRhci5negpJVU9MVjdmMmlJakhRQUFLYk04WklUa0ZIRVA1bWVvWTRmNHlFRHB6dEQyeVpRa1cvRlhoZ2czU0pGODhoRlNJSFZkdW0ybGVUUnlkdHZlb0NsdTRBdz09Cg==",
+      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.3.1.app.tar.gz"
     }
   }
 }

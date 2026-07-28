@@ -141,6 +141,9 @@ const setFont = document.getElementById('set-font');
 const setFontVal = document.getElementById('set-font-val');
 const setTint = document.getElementById('set-tint');
 const setTintVal = document.getElementById('set-tint-val');
+const setOpaque = document.getElementById('set-opaque');
+const setScroll = document.getElementById('set-scroll');
+const setScrollVal = document.getElementById('set-scroll-val');
 const setGlow = document.getElementById('set-glow');
 const setThemes = document.getElementById('set-themes');
 const setCursor = document.getElementById('set-cursor');
@@ -212,7 +215,7 @@ function copyText(text) {
 function activePane() { return activeTab?.active ?? null; }
 
 // --- Settings -----------------------------------------------------------------
-const DEFAULT_SETTINGS = { fontSize: 13.5, tint: 45, glow: true, theme: 'prism', cursor: 'bar', blink: true, editor: 'code', custom: [], keys: {}, font: 'jetbrains', summon: 'ctrl+`', userFonts: [] };
+const DEFAULT_SETTINGS = { fontSize: 13.5, tint: 45, opaque: false, scroll: 8, glow: true, theme: 'prism', cursor: 'bar', blink: true, editor: 'code', custom: [], keys: {}, font: 'jetbrains', summon: 'ctrl+`', userFonts: [] };
 // Bundled terminal fonts. Users can add their own: an imported font file
 // (stored in app data, loaded as a FontFace) or any installed system font
 // by family name. Those live in settings.userFonts as
@@ -390,9 +393,10 @@ function forEachPane(fn) { for (const t of tabs) for (const p of t.panes) fn(p, 
 function applySettings(save) {
   const th = currentTheme();
   document.body.classList.toggle('light', !!th.light);
+  const alpha = settings.opaque ? 1 : settings.tint / 100;
   document.body.style.background = th.light
-    ? `rgba(246, 247, 249, ${settings.tint / 100})`
-    : `rgba(10, 11, 16, ${settings.tint / 100})`;
+    ? `rgba(246, 247, 249, ${alpha})`
+    : `rgba(10, 11, 16, ${alpha})`;
   document.body.classList.toggle('glow-off', !settings.glow);
   forEachPane((p) => {
     p.term.options.fontFamily = termFont();
@@ -400,14 +404,21 @@ function applySettings(save) {
     p.term.options.theme = termTheme();
     p.term.options.cursorStyle = settings.cursor;
     p.term.options.cursorBlink = settings.blink;
+    p.term.options.scrollSensitivity = settings.scroll;
+    p.term.options.fastScrollSensitivity = Math.round(settings.scroll * 2.5);
   });
   if (activeTab) fitTab(activeTab);
   setFont.value = settings.fontSize;
   setFontVal.textContent = `${settings.fontSize}`;
   setTint.value = settings.tint;
   setTintVal.textContent = `${settings.tint}%`;
+  setOpaque.checked = settings.opaque;
+  setTint.disabled = settings.opaque; // tint has no effect on a solid window
+  setTint.closest('.set-row').classList.toggle('row-off', settings.opaque);
+  setScroll.value = settings.scroll;
+  setScrollVal.textContent = `${settings.scroll}`;
   // WebKit has no native range progress fill; paint it via a CSS var.
-  for (const r of [setFont, setTint]) {
+  for (const r of [setFont, setTint, setScroll]) {
     const pct = ((r.value - r.min) / (r.max - r.min)) * 100;
     r.style.setProperty('--pct', `${pct}%`);
   }
@@ -710,6 +721,8 @@ setSearchInput.addEventListener('input', () => {
 });
 setFont.addEventListener('input', () => { settings.fontSize = parseFloat(setFont.value); applySettings(true); });
 setTint.addEventListener('input', () => { settings.tint = parseInt(setTint.value, 10); applySettings(true); });
+setScroll.addEventListener('input', () => { settings.scroll = parseInt(setScroll.value, 10); applySettings(true); });
+setOpaque.addEventListener('change', () => { settings.opaque = setOpaque.checked; applySettings(true); });
 setGlow.addEventListener('change', () => { settings.glow = setGlow.checked; applySettings(true); });
 setCursor.addEventListener('change', () => { settings.cursor = setCursor.value; applySettings(true); });
 setBlink.addEventListener('change', () => { settings.blink = setBlink.checked; applySettings(true); });
@@ -1230,7 +1243,7 @@ async function createPane(tab, startCwd) {
     fontSize: settings.fontSize, lineHeight: 1.2,
     cursorBlink: settings.blink, cursorStyle: settings.cursor,
     scrollback: 10000, theme: termTheme(),
-    scrollSensitivity: 8, fastScrollSensitivity: 20, fastScrollModifier: 'alt',
+    scrollSensitivity: settings.scroll, fastScrollSensitivity: Math.round(settings.scroll * 2.5), fastScrollModifier: 'alt',
   });
   const fit = new FitAddon.FitAddon();
   const search = new SearchAddon.SearchAddon();

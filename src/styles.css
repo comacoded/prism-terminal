@@ -582,6 +582,7 @@ body.light #set-update { background: rgba(0,0,0,0.04); }
 body.light #set-update.avail { color: #1a7f37; border-color: rgba(26,127,55,0.4); }
 body.light #set-import { background: rgba(0,0,0,0.04); }
 .set-row { display: flex; align-items: center; gap: 12px; }
+.set-row.row-off { opacity: 0.4; pointer-events: none; }
 .set-label { flex: 1; min-width: 0; font-size: 14px; color: var(--fg); }
 .set-row input[type='range'] {
   -webkit-appearance: none; appearance: none;
