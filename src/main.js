@@ -100,6 +100,222 @@ function termTheme() {
   };
 }
 
+// --- Theme-snapped colors ------------------------------------------------------
+// Agents (Claude Code, Codex) paint themselves in hardcoded 24-bit color, which
+// ignores the palette entirely — switch themes and their output stays put. When
+// settings.themeColors is on, SGR color params are rewritten on the way in:
+// foregrounds become palette *indices* (so they re-render on later theme
+// switches) and backgrounds become a tint of the nearest palette color.
+function hexRgb(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+const ANSI_NAMES = [
+  'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white',
+  'brightBlack', 'brightRed', 'brightGreen', 'brightYellow',
+  'brightBlue', 'brightMagenta', 'brightCyan', 'brightWhite',
+];
+const CUBE = [0, 95, 135, 175, 215, 255];
+function xterm256Rgb(i) {
+  if (i < 16) return null; // already a palette slot
+  if (i < 232) {
+    const n = i - 16;
+    return [CUBE[(n / 36) | 0], CUBE[((n % 36) / 6) | 0], CUBE[n % 6]];
+  }
+  const v = 8 + (i - 232) * 10;
+  return [v, v, v];
+}
+// Oklab, so "nearest" means nearest to the eye. Plain RGB (and even redmean)
+// picks by raw channel deltas and will hand Claude's terracotta to a theme's
+// magenta over its red; matching in Oklab with lightness downweighted keeps
+// the hue family intact, which is the part people actually recognize.
+function srgbToOklab(rgb) {
+  const f = (u) => { u /= 255; return u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4); };
+  const r = f(rgb[0]), g = f(rgb[1]), b = f(rgb[2]);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [
+    0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s,
+  ];
+}
+// Euclidean Oklab splits exactly into lightness + chroma + hue, so weight the
+// three separately: hue is what makes a color recognizable ("that's the orange
+// one"), brightness least. Chroma keeps full weight or greys would drift into
+// saturated slots. Lab entries carry precomputed chroma/hue.
+const W_L = 0.45, W_C = 1.0, W_H = 1.9;
+function labParts(lab) {
+  return { L: lab[0], C: Math.hypot(lab[1], lab[2]), h: Math.atan2(lab[2], lab[1]) };
+}
+function colorDist(a, b) {
+  const dL = (a.L - b.L) * W_L;
+  const dC = (a.C - b.C) * W_C;
+  const dh = a.h - b.h;
+  const dH = 2 * Math.sqrt(a.C * b.C) * Math.sin(dh / 2) * W_H;
+  return dL * dL + dC * dC + dH * dH;
+}
+let paletteCache = null;
+function themePalette() {
+  const t = currentTheme();
+  if (paletteCache && paletteCache.theme === t) return paletteCache;
+  const slots = [];
+  ANSI_NAMES.forEach((name, i) => {
+    const rgb = hexRgb(t.colors[name]);
+    if (rgb) slots.push({ idx: i, rgb, lab: labParts(srgbToOklab(rgb)) });
+  });
+  const fg = hexRgb(t.colors.foreground);
+  if (fg) slots.push({ idx: -1, rgb: fg, lab: labParts(srgbToOklab(fg)) }); // -1 => SGR 39, the theme default
+  paletteCache = { theme: t, slots, bg: hexRgb(t.bg) || [10, 11, 16], memo: new Map(), seqs: new Map() };
+  return paletteCache;
+}
+function nearestSlot(rgb) {
+  const p = themePalette();
+  const key = (rgb[0] << 16) | (rgb[1] << 8) | rgb[2];
+  const hit = p.memo.get(key);
+  if (hit) return hit;
+  const lab = labParts(srgbToOklab(rgb));
+  let best = p.slots[0], bestD = Infinity;
+  for (const s of p.slots) {
+    const d = colorDist(lab, s.lab);
+    if (d < bestD) { bestD = d; best = s; }
+  }
+  if (p.memo.size > 512) p.memo.clear(); // agents reuse a handful of colors
+  p.memo.set(key, best);
+  return best;
+}
+function tintOverBg(rgb, amt) {
+  const bg = themePalette().bg;
+  return [0, 1, 2].map((i) => Math.round(bg[i] + (rgb[i] - bg[i]) * amt));
+}
+// Pull the r,g,b out of one SGR color spec, whichever of the three forms it uses.
+// Returns { rgb, consumed } where consumed counts extra ';' tokens swallowed.
+function readColorSpec(toks, i) {
+  const t = toks[i];
+  if (t.includes(':')) { // 38:2::r:g:b / 38:2:r:g:b / 38:5:n
+    const p = t.split(':');
+    if (p[1] === '2') {
+      const off = p.length >= 6 ? 3 : 2;
+      const rgb = [+p[off], +p[off + 1], +p[off + 2]];
+      return rgb.every((v) => v >= 0 && v <= 255) ? { rgb, consumed: 0 } : null;
+    }
+    if (p[1] === '5') return { rgb: xterm256Rgb(+p[2]), consumed: 0, idx: +p[2] };
+    return null;
+  }
+  const mode = toks[i + 1];
+  if (mode === '2' && i + 4 < toks.length) {
+    const rgb = [+toks[i + 2], +toks[i + 3], +toks[i + 4]];
+    return rgb.every((v) => v >= 0 && v <= 255) ? { rgb, consumed: 4 } : null;
+  }
+  if (mode === '5' && i + 2 < toks.length) {
+    const idx = +toks[i + 2];
+    return { rgb: xterm256Rgb(idx), consumed: 2, idx };
+  }
+  return null;
+}
+function snapSgrParams(str) {
+  if (!str.includes('38') && !str.includes('48')) return null;
+  const toks = str.split(';');
+  const out = [];
+  let changed = false;
+  // A run that sets fg AND bg together (status bars, selected rows) keeps both
+  // at full strength so their contrast survives; a lone bg (diff highlights)
+  // becomes a subtle tint instead of a slab of saturated color.
+  const pair = /(^|;)38[;:]/.test(str) && /(^|;)48[;:]/.test(str);
+  for (let i = 0; i < toks.length; i++) {
+    const t = toks[i];
+    const head = t.split(':')[0];
+    if (head !== '38' && head !== '48') { out.push(t); continue; }
+    const spec = readColorSpec(toks, i);
+    if (!spec || !spec.rgb) { out.push(t); continue; }
+    if (spec.idx !== undefined && spec.idx < 16) { // already themed
+      out.push(t);
+      for (let k = 1; k <= spec.consumed; k++) out.push(toks[i + k]);
+      i += spec.consumed;
+      continue;
+    }
+    const slot = nearestSlot(spec.rgb);
+    if (head === '38') {
+      out.push(slot.idx < 0 ? '39' : `38;5;${slot.idx}`);
+    } else {
+      const rgb = pair ? slot.rgb : tintOverBg(slot.rgb, 0.28);
+      out.push(`48;2;${rgb[0]};${rgb[1]};${rgb[2]}`);
+    }
+    i += spec.consumed;
+    changed = true;
+  }
+  return changed ? out.join(';') : null;
+}
+const SGR_CARRY_MAX = 96; // longest partial CSI worth holding for the next chunk
+const latin1Dec = new TextDecoder('latin1');
+const utf8Enc = new TextEncoder();
+function concatBytes(parts, total) {
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const p of parts) { out.set(p, at); at += p.length; }
+  return out;
+}
+// Rewrites complete `ESC [ … m` sequences in the pty byte stream. A sequence
+// split across chunks is held in st.carry rather than mangled.
+function snapColors(st, data) {
+  if (st.carry && st.carry.length) {
+    const merged = new Uint8Array(st.carry.length + data.length);
+    merged.set(st.carry); merged.set(data, st.carry.length);
+    data = merged; st.carry = null;
+  }
+  const len = data.length;
+  if (data.indexOf(0x1b) < 0) return data; // no escapes at all: hand the buffer straight through
+  const parts = [];
+  let total = 0;
+  let flushFrom = 0, i = 0;
+  const push = (b) => { if (b.length) { parts.push(b); total += b.length; } };
+  while (i < len) {
+    // Native indexOf beats walking byte by byte; heavy output is mostly plain text.
+    i = data.indexOf(0x1b, i);
+    if (i < 0) break;
+    if (i + 1 >= len) { // lone ESC at the end: hold it
+      push(data.subarray(flushFrom, i));
+      st.carry = data.slice(i);
+      return concatBytes(parts, total);
+    }
+    if (data[i + 1] !== 0x5b) { i += 2; continue; } // not a CSI, leave alone
+    let j = i + 2;
+    while (j < len && data[j] >= 0x20 && data[j] <= 0x3f) j++;
+    if (j >= len) { // params run to the chunk edge
+      if (j - i <= SGR_CARRY_MAX) {
+        push(data.subarray(flushFrom, i));
+        st.carry = data.slice(i);
+        return concatBytes(parts, total);
+      }
+      break; // implausibly long: let it through untouched
+    }
+    if (data[j] !== 0x6d) { i = j + 1; continue; } // some other CSI
+    // "38;5;9" is the shortest color spec there is, so anything under six bytes
+    // (a reset, bold, an underline) can't need rewriting — skip without decoding.
+    if (j - i - 2 < 6) { i = j + 1; continue; }
+    const params = latin1Dec.decode(data.subarray(i + 2, j));
+    const memo = themePalette().seqs;
+    let repl = memo.get(params);
+    if (repl === undefined) {
+      const rewritten = snapSgrParams(params);
+      repl = rewritten === null ? null : utf8Enc.encode(`\x1b[${rewritten}m`);
+      if (memo.size > 512) memo.clear(); // agents cycle through a small set of runs
+      memo.set(params, repl);
+    }
+    if (repl !== null) {
+      push(data.subarray(flushFrom, i));
+      push(repl);
+      flushFrom = j + 1;
+    }
+    i = j + 1;
+  }
+  push(data.subarray(flushFrom, len));
+  return parts.length === 1 ? parts[0] : concatBytes(parts, total);
+}
+
 // Glow markers: the LLM work-spinner's live elapsed timer, e.g. "(6s · ..."
 const WORK_RE = /\(\d+s[\s·)]|esc to interrupt/i;
 const WORK_HOLD_MS = 2500; // bridge spinner redraws so the glow never flickers
@@ -112,11 +328,6 @@ let HOME = '';
 const tabsEl = document.getElementById('tabs');
 const panesEl = document.getElementById('panes');
 const newTabBtn = document.getElementById('new-tab');
-const toggleArtBtn = document.getElementById('toggle-artifacts');
-const artBadge = document.getElementById('art-badge');
-const artCount = document.getElementById('art-count');
-const artCwd = document.getElementById('art-cwd');
-const artList = document.getElementById('art-list');
 const fCwd = document.getElementById('f-cwd');
 const fBranch = document.getElementById('f-branch');
 const fCmd = document.getElementById('f-cmd');
@@ -142,6 +353,7 @@ const setFontVal = document.getElementById('set-font-val');
 const setTint = document.getElementById('set-tint');
 const setTintVal = document.getElementById('set-tint-val');
 const setOpaque = document.getElementById('set-opaque');
+const setThemeColors = document.getElementById('set-theme-colors');
 const setScroll = document.getElementById('set-scroll');
 const setScrollVal = document.getElementById('set-scroll-val');
 const setGlow = document.getElementById('set-glow');
@@ -155,11 +367,6 @@ const setImport = document.getElementById('set-import');
 const setImportFile = document.getElementById('set-import-file');
 const setVersion = document.getElementById('set-version');
 const setUpdate = document.getElementById('set-update');
-const diffView = document.getElementById('diff-view');
-const diffTitle = document.getElementById('diff-title');
-const diffBody = document.getElementById('diff-body');
-const EYE_ICON = '<svg viewBox="0 0 256 256"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg>';
-const DIFF_ICON = '<svg viewBox="0 0 256 256"><path d="M112,152a8,8,0,0,0-8,8v28.69L66.34,151A8,8,0,0,1,64,145.37V95a32,32,0,1,0-16,0v50.38a23.85,23.85,0,0,0,7,17L92.69,200H64a8,8,0,0,0,0,16h48a8,8,0,0,0,8-8V160A8,8,0,0,0,112,152ZM40,64A16,16,0,1,1,56,80,16,16,0,0,1,40,64Zm168,97V110.63a23.85,23.85,0,0,0-7-17L163.31,56H192a8,8,0,0,0,0-16H144a8,8,0,0,0-8,8V96a8,8,0,0,0,16,0V67.31L189.66,105a8,8,0,0,1,2.34,5.66V161a32,32,0,1,0,16,0Zm-8,47a16,16,0,1,1,16-16A16,16,0,0,1,200,208Z"/></svg>';
 
 const tabs = [];
 let activeTab = null;
@@ -215,7 +422,7 @@ function copyText(text) {
 function activePane() { return activeTab?.active ?? null; }
 
 // --- Settings -----------------------------------------------------------------
-const DEFAULT_SETTINGS = { fontSize: 13.5, tint: 45, opaque: false, scroll: 8, glow: true, theme: 'prism', cursor: 'bar', blink: true, editor: 'code', custom: [], keys: {}, font: 'jetbrains', summon: 'ctrl+`', userFonts: [] };
+const DEFAULT_SETTINGS = { fontSize: 13.5, tint: 45, opaque: false, scroll: 8, glow: true, themeColors: true, theme: 'prism', cursor: 'bar', blink: true, editor: 'code', custom: [], keys: {}, font: 'jetbrains', summon: 'ctrl+`', userFonts: [] };
 // Bundled terminal fonts. Users can add their own: an imported font file
 // (stored in app data, loaded as a FontFace) or any installed system font
 // by family name. Those live in settings.userFonts as
@@ -294,7 +501,6 @@ const DEFAULT_KEYMAP = {
   'clear':       { mods: 'meta', key: 'k', label: 'Clear terminal' },
   'prev-prompt': { mods: 'meta', key: 'arrowup', label: 'Previous prompt' },
   'next-prompt': { mods: 'meta', key: 'arrowdown', label: 'Next prompt' },
-  'artifacts':   { mods: 'meta+shift', key: 'a', label: 'Artifacts rail' },
   'settings':    { mods: 'meta', key: ',', label: 'Settings' },
   'font-up':     { mods: 'meta', key: '=', label: 'Text size up' },
   'font-down':   { mods: 'meta', key: '-', label: 'Text size down' },
@@ -316,7 +522,6 @@ const ACTION_RUN = {
   'clear': () => activePane()?.term.clear(),
   'prev-prompt': () => jumpPrompt(-1),
   'next-prompt': () => jumpPrompt(1),
-  'artifacts': () => togglePanel(),
   'settings': () => toggleSettings(),
   'font-up': () => adjustFont(0.5),
   'font-down': () => adjustFont(-0.5),
@@ -394,9 +599,9 @@ function applySettings(save) {
   const th = currentTheme();
   document.body.classList.toggle('light', !!th.light);
   const alpha = settings.opaque ? 1 : settings.tint / 100;
-  document.body.style.background = th.light
-    ? `rgba(246, 247, 249, ${alpha})`
-    : `rgba(10, 11, 16, ${alpha})`;
+  const [br, bg2, bb] = hexRgb(th.bg) || (th.light ? [246, 247, 249] : [10, 11, 16]);
+  document.body.style.background = `rgba(${br}, ${bg2}, ${bb}, ${alpha})`;
+  document.body.style.setProperty('--theme-bg', th.bg);
   document.body.classList.toggle('glow-off', !settings.glow);
   forEachPane((p) => {
     p.term.options.fontFamily = termFont();
@@ -413,6 +618,7 @@ function applySettings(save) {
   setTint.value = settings.tint;
   setTintVal.textContent = `${settings.tint}%`;
   setOpaque.checked = settings.opaque;
+  setThemeColors.checked = settings.themeColors;
   setTint.disabled = settings.opaque; // tint has no effect on a solid window
   setTint.closest('.set-row').classList.toggle('row-off', settings.opaque);
   setScroll.value = settings.scroll;
@@ -723,6 +929,7 @@ setFont.addEventListener('input', () => { settings.fontSize = parseFloat(setFont
 setTint.addEventListener('input', () => { settings.tint = parseInt(setTint.value, 10); applySettings(true); });
 setScroll.addEventListener('input', () => { settings.scroll = parseInt(setScroll.value, 10); applySettings(true); });
 setOpaque.addEventListener('change', () => { settings.opaque = setOpaque.checked; applySettings(true); });
+setThemeColors.addEventListener('change', () => { settings.themeColors = setThemeColors.checked; applySettings(true); });
 setGlow.addEventListener('change', () => { settings.glow = setGlow.checked; applySettings(true); });
 setCursor.addEventListener('change', () => { settings.cursor = setCursor.value; applySettings(true); });
 setBlink.addEventListener('change', () => { settings.blink = setBlink.checked; applySettings(true); });
@@ -967,8 +1174,8 @@ function needsAttention(t, p) {
     t.tabEl.dataset.attention = '1';
     updateDockBadge();
     invoke('notify_user', {
-      title: `${p.fgProcess || 'agent'} is waiting on you`,
-      body: tilde(p.cwd || ''),
+      title: 'PRISM',
+      body: `${p.fgProcess || 'An agent'} is waiting on you`,
     });
   }
 }
@@ -1040,7 +1247,7 @@ function hookAppProtocols(t, p) {
       const [, st, pr] = data.split(';');
       setTabProgress(t, parseInt(st, 10), parseInt(pr ?? '0', 10) || 0);
     } else if (data) {
-      appNotify(p, 'Terminal', data);
+      appNotify(p, 'PRISM', data);
     }
     return true;
   });
@@ -1095,8 +1302,8 @@ function onCommandEnd(p) {
   const lc = p.lastCmd;
   if (lc.dur >= NOTIFY_CMD_MS && (!document.hasFocus() || p !== activePane())) {
     invoke('notify_user', {
-      title: 'Command finished',
-      body: `${lc.code ? 'exit ' + lc.code : 'ok'} · ${fmtDur(lc.dur)} · ${tilde(p.cwd || '')}`,
+      title: 'PRISM',
+      body: `Command finished · ${lc.code ? 'exit ' + lc.code : 'ok'} · ${fmtDur(lc.dur)}`,
     });
   }
 }
@@ -1121,76 +1328,6 @@ function copyLastOutput() {
     if (line) out.push(line.translateToString(true));
   }
   if (out.length) copyText(out.join('\n'));
-}
-
-// --- Artifacts rail ---------------------------------------------------------
-function renderArtifacts(tab) {
-  const p = tab.active;
-  const arts = p?.artifacts ?? [];
-  artCount.textContent = arts.length ? String(arts.length) : '';
-  artCwd.textContent = p?.cwd ? tilde(p.cwd) : '';
-  artList.replaceChildren();
-  if (arts.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'art-empty';
-    empty.textContent = 'Files an agent writes or edits appear here.';
-    artList.appendChild(empty);
-    return;
-  }
-  for (const rec of arts) {
-    const row = document.createElement('div');
-    row.className = 'art-row';
-    row.title = `${rec.path}\nClick to reveal in Finder`;
-    const name = document.createElement('div');
-    name.className = 'art-name';
-    name.textContent = rec.path.split('/').pop() || rec.path;
-    const meta = document.createElement('div');
-    meta.className = 'art-meta';
-    const dir = document.createElement('span');
-    dir.className = 'art-dir';
-    const full = tilde(rec.path);
-    dir.textContent = full.slice(0, full.lastIndexOf('/') + 1) || full;
-    const when = document.createElement('span');
-    when.className = 'art-when';
-    when.textContent = relTime(rec.time);
-    meta.append(dir, when);
-    const acts = document.createElement('div');
-    acts.className = 'art-acts';
-    const ql = document.createElement('button');
-    ql.innerHTML = EYE_ICON;
-    ql.title = 'Quick Look';
-    ql.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); invoke('quicklook', { path: rec.path }); });
-    const df = document.createElement('button');
-    df.innerHTML = DIFF_ICON;
-    df.title = 'Git diff';
-    df.addEventListener('mousedown', async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const out = await invoke('artifact_diff', { cwd: p?.cwd || HOME, path: rec.path });
-      showDiff(rec.path, out);
-    });
-    acts.append(ql, df);
-    row.append(name, meta, acts);
-    row.addEventListener('click', () => invoke('artifact_reveal', { path: rec.path }));
-    artList.appendChild(row);
-  }
-}
-function updateArtBadge() {
-  const n = activePane()?.artifacts.length ?? 0;
-  artBadge.textContent = n ? String(n) : '';
-  artBadge.style.display = n ? 'grid' : 'none';
-}
-function setPanel(open) {
-  if (document.body.classList.contains('panel-open') === open) return;
-  document.body.classList.toggle('panel-open', open);
-  toggleArtBtn.classList.toggle('active', open);
-  requestAnimationFrame(() => { if (activeTab) fitTab(activeTab); });
-}
-function togglePanel() {
-  const opening = !document.body.classList.contains('panel-open');
-  // manually closing a rail that has content means "stop auto-opening here"
-  if (activeTab) activeTab.railDismissed = !opening && (activePane()?.artifacts.length ?? 0) > 0;
-  setPanel(opening);
 }
 
 // --- Semantic history: Cmd-click a path to open it in your editor --------------
@@ -1276,7 +1413,7 @@ async function createPane(tab, startCwd) {
     id, term, fit, search, el, tab, parent: null, // parent = split node, null at layout root
     exited: false, fgProcess: '', agentActive: false,
     cwd: startCwd || '', branch: '', burstActive: false, workSeen: 0,
-    marks: [], cmdStart: null, lastCmd: null, artifacts: [],
+    marks: [], cmdStart: null, lastCmd: null,
   };
   hookPromptMarks(pane);
   hookAppProtocols(tab, pane);
@@ -1320,8 +1457,6 @@ function setActivePane(tab, pane) {
   if (tab === activeTab) {
     invoke('set_active', { id: pane.id });
     renderFooter();
-    renderArtifacts(tab);
-    updateArtBadge();
     pane.term.focus();
   }
 }
@@ -1923,7 +2058,7 @@ function newTabShell() {
     panes: [], active: null, layout: null, zoom: false, broadcast: false,
     paneEl, tabEl, titleEl, progEl,
     startTime: Date.now(), stateSince: Date.now(),
-    groupId: null, railDismissed: false,
+    groupId: null,
     autoTitle: label, customTitle: null, renaming: false,
   };
   tabs.push(tab);
@@ -2033,12 +2168,9 @@ function activateTab(tab) {
     t.paneEl.classList.toggle('hidden', !on);
     t.tabEl.classList.toggle('active', on);
   }
-  setPanel((tab.active?.artifacts.length ?? 0) > 0 && !tab.railDismissed); // rail follows context
   fitTab(tab);
   syncGlow();
   renderFooter();
-  renderArtifacts(tab);
-  updateArtBadge();
   if (tab.active) {
     invoke('set_active', { id: tab.active.id });
     tab.active.term.focus();
@@ -2282,6 +2414,17 @@ function kittyScan(k, data) {
 }
 
 function writePtyData(pane, bytes) {
+  if (!pane.sgr) pane.sgr = { carry: null };
+  if (settings.themeColors) {
+    bytes = snapColors(pane.sgr, bytes);
+  } else if (pane.sgr.carry) { // switched off mid-sequence: don't strand the held bytes
+    const c = pane.sgr.carry;
+    pane.sgr.carry = null;
+    const merged = new Uint8Array(c.length + bytes.length);
+    merged.set(c); merged.set(bytes, c.length);
+    bytes = merged;
+  }
+  if (!bytes.length) return;
   if (!pane.kitty) { pane.term.write(bytes); return; }
   const segs = kittyScan(pane.kitty, bytes);
   for (const s of segs) {
@@ -2582,7 +2725,6 @@ listen('pty://proc', (e) => {
   const hit = findPane(e.payload.id); if (!hit) return;
   const { t, p } = hit;
   p.fgProcess = e.payload.proc;
-  if (e.payload.active && !p.agentActive) t.railDismissed = false; // new agent session
   p.agentActive = e.payload.active;
   if (!e.payload.active && p.burstActive) clearWork(p, t); else refreshTab(t);
   if (p === activePane()) renderFooter();
@@ -2606,21 +2748,6 @@ window.__TAURI__.webview.getCurrentWebview().onDragDropEvent((e) => {
   if (!p || p.exited || !paths.length) return;
   invoke('pty_write', { id: p.id, data: paths.map(shellEscape).join(' ') + ' ' });
   p.term.focus();
-});
-listen('artifacts://update', (e) => {
-  const hit = findPane(e.payload.id); if (!hit) return;
-  const { t, p } = hit;
-  const grew = e.payload.list.length > p.artifacts.length;
-  p.artifacts = e.payload.list;
-  if (p === activePane()) { renderArtifacts(t); updateArtBadge(); }
-  if (!grew) return;
-  if (p === activePane() && !t.railDismissed) {
-    setPanel(true); // an agent is producing files here — surface them
-  } else if (!document.body.classList.contains('panel-open')) {
-    toggleArtBtn.classList.remove('pulse');
-    void toggleArtBtn.offsetWidth;
-    toggleArtBtn.classList.add('pulse');
-  }
 });
 
 // --- Socket API (Unix socket -> Rust -> here; `prism` CLI in every shell) ------
@@ -2691,24 +2818,6 @@ listen('api://request', async (e) => {
   invoke('api_respond', { id, data: JSON.stringify(res ?? { ok: true }) });
 });
 
-// --- Artifact diff overlay -----------------------------------------------------
-function showDiff(path, text) {
-  diffTitle.textContent = 'git diff · ' + (path.split('/').pop() || path);
-  diffBody.replaceChildren();
-  for (const line of text.split('\n')) {
-    const el = document.createElement('div');
-    el.textContent = line;
-    if (line.startsWith('+') && !line.startsWith('+++')) el.className = 'dl-add';
-    else if (line.startsWith('-') && !line.startsWith('---')) el.className = 'dl-del';
-    else if (line.startsWith('@@')) el.className = 'dl-hunk';
-    else if (line.startsWith('diff ') || line.startsWith('index ')) el.className = 'dl-meta';
-    diffBody.appendChild(el);
-  }
-  diffView.classList.remove('hidden');
-}
-function closeDiff() { diffView.classList.add('hidden'); activePane()?.term.focus(); }
-diffView.addEventListener('mousedown', (e) => { if (e.target === diffView) closeDiff(); });
-
 // --- Scrollback search (Cmd+F) ------------------------------------------------
 const FIND_DECOR = {
   matchBackground: '#3a4a6b', activeMatchBackground: '#6b5a9e',
@@ -2758,7 +2867,6 @@ function paletteActions() {
     { label: 'Mission control', kbd: kbdLabel('mission'), run: () => toggleMission() },
     { label: 'Find in scrollback', kbd: kbdLabel('find'), run: () => openFind() },
     { label: 'Clear terminal', kbd: kbdLabel('clear'), run: () => activePane()?.term.clear() },
-    { label: 'Toggle artifacts panel', kbd: kbdLabel('artifacts'), run: () => togglePanel() },
     { label: 'Settings', kbd: kbdLabel('settings'), run: () => toggleSettings() },
     ...(pendingUpdate ? [{ label: `Install update v${pendingUpdate.version} (restarts)`, kbd: '', run: () => installPendingUpdate() }] : []),
     { label: 'Copy last command output', kbd: '', run: () => copyLastOutput() },
@@ -2766,7 +2874,7 @@ function paletteActions() {
     { label: 'Jump to next prompt', kbd: kbdLabel('next-prompt'), run: () => jumpPrompt(1) },
   ];
   if (activePane()?.cwd) {
-    acts.push({ label: 'Reveal current folder in Finder', kbd: '', run: () => invoke('artifact_reveal', { path: activePane().cwd }) });
+    acts.push({ label: 'Reveal current folder in Finder', kbd: '', run: () => invoke('reveal_path', { path: activePane().cwd }) });
   }
   for (const t of tabs) {
     acts.push({
@@ -2882,13 +2990,6 @@ function renderMission() {
       branch.textContent = t.active.branch;
       card.appendChild(branch);
     }
-    const arts = t.active?.artifacts ?? [];
-    if (arts.length) {
-      const files = document.createElement('div');
-      files.className = 'm-files';
-      files.textContent = arts.slice(0, 3).map((r) => r.path.split('/').pop()).join(' · ');
-      card.appendChild(files);
-    }
     card.addEventListener('mousedown', () => { closeMission(); activateTab(t); });
     missionGrid.appendChild(card);
   }
@@ -2907,14 +3008,12 @@ function closeFocused() {
   else closeTab(activeTab);
 }
 newTabBtn.addEventListener('mousedown', (e) => { e.preventDefault(); if (ready) createTab(); });
-toggleArtBtn.addEventListener('mousedown', (e) => { e.preventDefault(); togglePanel(); });
 window.addEventListener('resize', () => { if (activeTab) fitTab(activeTab); });
 
 window.addEventListener('keydown', (e) => {
   if (!ready) return;
   if (e.key === 'Escape') {
-    if (!diffView.classList.contains('hidden')) { e.preventDefault(); closeDiff(); }
-    else if (!ctxMenu.classList.contains('hidden')) { e.preventDefault(); closeCtxMenu(); }
+    if (!ctxMenu.classList.contains('hidden')) { e.preventDefault(); closeCtxMenu(); }
     else if (!groupEditor.classList.contains('hidden')) { e.preventDefault(); closeGroupEditor(); }
     else if (!findBar.classList.contains('hidden')) { e.preventDefault(); closeFind(); }
     else if (!paletteEl.classList.contains('hidden')) { e.preventDefault(); closePalette(); }
@@ -2943,9 +3042,6 @@ window.addEventListener('keydown', (e) => {
 setInterval(() => {
   if (!activeTab) return;
   fUp.textContent = uptime(Date.now() - activeTab.startTime);
-  if (document.body.classList.contains('panel-open') && activePane()?.artifacts.length) {
-    renderArtifacts(activeTab);
-  }
   if (!missionEl.classList.contains('hidden')) renderMission();
 }, 1000);
 

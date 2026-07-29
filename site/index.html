@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>PRISM: the terminal that knows your agent is working</title>
-<meta name="description" content="A glass terminal for macOS built for the age of AI coding agents. See when Claude is working, what files it touched, and drive every pane from a socket API." />
+<meta name="description" content="A glass terminal for macOS built for the age of AI coding agents. See when Claude is working, supervise every session at a glance, and drive every pane from a socket API." />
 <meta property="og:title" content="PRISM" />
 <meta property="og:description" content="An agent-native terminal for macOS." />
 <meta property="og:url" content="https://prism-landing-production.up.railway.app/" />
@@ -162,19 +162,6 @@
   .d-term .g { color: #7ee787; } .d-term .y { color: #e3b341; }
   .d-caret { display: inline-block; width: 7px; height: 15px; background: #fff; vertical-align: -2px; animation: caret 1.05s steps(1) infinite; }
   @keyframes caret { 50% { opacity: 0; } }
-  .d-rail {
-    width: 0; overflow: hidden; border-left: 1px solid rgba(255,255,255,0);
-    transition: width 500ms cubic-bezier(0.3, 0.7, 0, 1), border-color 500ms;
-    font-family: var(--mono);
-  }
-  .demo-stage.rail-open .d-rail { width: 186px; border-color: rgba(255,255,255,0.07); }
-  .d-rail-head { padding: 12px 14px 9px; font-size: 11px; border-bottom: 1px solid rgba(255,255,255,0.06); white-space: nowrap; }
-  .d-rail-head .cnt { color: var(--blue); }
-  .d-rail-head .cwd { color: var(--faint); font-size: 10px; margin-top: 2px; }
-  .d-art { padding: 9px 14px 0; opacity: 0; transform: translateY(8px); transition: opacity 400ms ease, transform 400ms cubic-bezier(0.2, 0.8, 0.2, 1); white-space: nowrap; }
-  .d-art.in { opacity: 1; transform: none; }
-  .d-art .f { font-size: 11.5px; }
-  .d-art .p { font-size: 9.5px; color: var(--faint); }
   .d-footer { display: flex; gap: 12px; align-items: center; height: 30px; padding: 0 14px; font-family: var(--mono); font-size: 10.5px; color: var(--faint); border-top: 1px solid rgba(255,255,255,0.05); }
   .d-footer .sp { flex: 1; }
   .d-footer .ok { color: #7ee787; opacity: 0; transition: opacity 400ms; }
@@ -315,12 +302,6 @@
       </div>
       <div class="d-body">
         <div class="d-term" id="d-term"></div>
-        <div class="d-rail">
-          <div class="d-rail-head">Artifacts <span class="cnt" id="d-count"></span>
-            <div class="cwd">~/dev/prism</div>
-          </div>
-          <div id="d-arts"></div>
-        </div>
       </div>
       <div class="d-footer">
         <span>~/dev/prism</span><span style="color:#9bb7ff">main</span>
@@ -332,7 +313,7 @@
   <div class="demo-steps">
     <span class="demo-step" id="s1">1 · detected</span>
     <span class="demo-step" id="s2">2 · glowing</span>
-    <span class="demo-step" id="s3">3 · tracked</span>
+    <span class="demo-step" id="s3">3 · editing</span>
     <span class="demo-step" id="s4">4 · calm</span>
   </div>
     </div>
@@ -342,8 +323,8 @@
 <div class="marquee rv">
   <div class="marquee-in" id="mq">
     <span>tabs</span><span>tab groups</span><span>split panes</span><span>mission control</span>
-    <span>agent glow</span><span>needs-you alerts</span><span>artifacts</span><span>quick look</span>
-    <span>git diff</span><span>cmd-click paths</span><span>command history</span><span>session restore</span>
+    <span>agent glow</span><span>needs-you alerts</span>
+    <span>cmd-click paths</span><span>command history</span><span>session restore</span>
     <span>socket API</span><span>themes</span><span>theme import</span><span>pane zoom</span>
     <span>broadcast input</span><span>light mode</span><span>search</span>
   </div>
@@ -374,14 +355,14 @@
     <div class="feature flip">
       <div class="copy rv">
         <h2>Every session at a glance.</h2>
-        <p>One keystroke shows every tab as a live card: agent state and how long it's been there, working directory, git branch, and the last files touched. Click to jump in.</p>
+        <p>One keystroke shows every tab as a live card: agent state and how long it's been there, working directory, and git branch. Click to jump in.</p>
         <ul>
           <li>working / waiting / idle states per session</li>
           <li>an agent finishing while you're away notifies you and badges the Dock</li>
           <li>tab groups with names and colors; drag between them, collapse into chips</li>
         </ul>
       </div>
-      <div class="shot rv d1"><img src="assets/mission.png" loading="lazy" alt="Mission control: a grid of session cards showing agent states, branches, and touched files" /></div>
+      <div class="shot rv d1"><img src="assets/mission.png" loading="lazy" alt="Mission control: a grid of session cards showing agent states and branches" /></div>
     </div>
 
     <div class="feature">
@@ -419,7 +400,7 @@
     </div>
     <div class="faq rv">
       <div class="qa"><button>Which agents work with it?<span class="pm">+</span></button>
-        <div class="a"><p>Anything that runs in a shell. PRISM detects Claude Code and Codex out of the box for the glow and status states, and every feature (splits, artifacts, the socket API) works with any CLI tool. There is no bundled model and no account.</p></div>
+        <div class="a"><p>Anything that runs in a shell. PRISM detects Claude Code and Codex out of the box for the glow and status states, and every feature (splits, the socket API) works with any CLI tool. There is no bundled model and no account.</p></div>
       </div>
       <div class="qa"><button>Does it replace tmux?<span class="pm">+</span></button>
         <div class="a"><p>No, and it doesn't try to. tmux is for remote persistence and lives happily inside PRISM. PRISM handles the local story: tabs, splits, session restore with scrollback, and the agent layer no multiplexer has.</p></div>
@@ -507,19 +488,12 @@
   // ---- the live product demo ----
   const stage = document.getElementById('stage');
   const dterm = document.getElementById('d-term');
-  const darts = document.getElementById('d-arts');
-  const dcount = document.getElementById('d-count');
   const dtab = document.getElementById('d-tab1');
   const dproc = document.getElementById('d-proc');
   const dup = document.getElementById('d-up');
   const steps = [1, 2, 3, 4].map((n) => document.getElementById('s' + n));
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const FILES = [
-    ['main.js', 'src/'],
-    ['styles.css', 'src/'],
-    ['main.rs', 'src-tauri/src/'],
-  ];
   let demoTimers = [];
   const at = (ms, fn) => demoTimers.push(setTimeout(fn, ms));
   const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -529,11 +503,9 @@
   function runDemo() {
     demoTimers.forEach(clearTimeout);
     demoTimers = [];
-    stage.classList.remove('glowing', 'rail-open', 'done');
+    stage.classList.remove('glowing', 'done');
     dtab.classList.remove('working');
     dterm.innerHTML = '';
-    darts.innerHTML = '';
-    dcount.textContent = '';
     dproc.textContent = 'shell';
     steps.forEach((s) => s.classList.remove('on'));
 
@@ -571,25 +543,15 @@
       spin();
       for (let i = 1; i < 9; i++) at(1000 * i, spin);
     });
-    // edits stream in + artifacts rail
+    // edits stream in
     const edits = [
       '  <span class="dm">⎿</span> <span class="g">Edited</span> src/main.js <span class="dm">(+142 -37)</span>',
       '  <span class="dm">⎿</span> <span class="g">Edited</span> src/styles.css <span class="dm">(+38 -6)</span>',
       '  <span class="dm">⎿</span> Running <span class="y">npm test</span> <span class="dm">…</span> <span class="g">42 passed</span>',
     ];
-    at(3600, () => stage.classList.add('rail-open'));
     edits.forEach((line, i) => {
       at(4000 + i * 1300, () => {
         html += (i === 0 ? '' : '\n') + line + '\n';
-        if (i < FILES.length) {
-          const [f, p] = FILES[i];
-          const el = document.createElement('div');
-          el.className = 'd-art';
-          el.innerHTML = `<div class="f">${f}</div><div class="p">~/dev/prism/${p}</div>`;
-          darts.prepend(el);
-          requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('in')));
-          dcount.textContent = String(i + 1);
-        }
         setStep(3);
       });
     });
@@ -613,7 +575,7 @@
   if (reduced) {
     // static final frame for reduced motion
     dterm.innerHTML = '<span class="dm">~/dev/prism</span> <span class="b">❯</span> claude\n\n<span class="v">✳</span> Planning the refactor\n\n  <span class="dm">⎿</span> <span class="g">Edited</span> src/main.js <span class="dm">(+142 -37)</span>\n<span class="g">✓</span> Done';
-    stage.classList.add('rail-open', 'done');
+    stage.classList.add('done');
     setStep(3);
   } else {
     const demoIO = new IntersectionObserver((es) => {

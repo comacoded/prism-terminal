@@ -25,10 +25,6 @@ struct Session {
     pid: u32,
     proc: String,
     agent_active: bool,
-    watcher: Option<notify::RecommendedWatcher>,
-    watch_dir: Option<String>,
-    artifacts: HashMap<String, (String, u64)>, // abs path -> (tool, time_ms)
-    artifacts_dirty: bool,
 }
 
 #[derive(Default)]
@@ -62,36 +58,9 @@ struct FooterPayload {
     branch: String,
 }
 #[derive(Clone, Serialize)]
-struct ArtifactRecord {
-    path: String,
-    tool: String,
-    time: u64,
-}
-#[derive(Clone, Serialize)]
-struct ArtifactsPayload {
-    id: u32,
-    list: Vec<ArtifactRecord>,
-}
-#[derive(Clone, Serialize)]
 struct ApiRequest {
     id: u64,
     req: String,
-}
-
-fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0)
-}
-
-/// Directories/files we never treat as artifacts (mirrors the Electron regex).
-fn ignored(path: &str) -> bool {
-    const SKIP: [&str; 15] = [
-        "node_modules", ".git", ".next", ".cache", ".turbo", "dist", "build", "out",
-        "coverage", ".venv", "venv", "__pycache__", ".DS_Store", ".idea", ".vscode",
-    ];
-    path.split('/').any(|seg| SKIP.contains(&seg))
 }
 
 fn home() -> String {
@@ -446,10 +415,6 @@ fn pty_spawn(
             pid,
             proc: String::new(),
             agent_active: false,
-            watcher: None,
-            watch_dir: None,
-            artifacts: HashMap::new(),
-            artifacts_dirty: false,
         },
     );
 
@@ -467,7 +432,7 @@ fn pty_spawn(
                 }
             }
         }
-        // Drop the session (writer, master, watcher) so exited shells don't linger.
+        // Drop the session (writer, master) so exited shells don't linger.
         state_read.sessions.lock().unwrap().remove(&id);
         let _ = app_read.emit("pty://exit", IdPayload { id });
     });
@@ -522,7 +487,7 @@ fn set_active(state: tauri::State<'_, Arc<AppState>>, id: u32) {
 }
 
 #[tauri::command]
-fn artifact_reveal(path: String) {
+fn reveal_path(path: String) {
     let _ = Command::new("open").arg("-R").arg(path).spawn();
 }
 
@@ -530,37 +495,6 @@ fn artifact_reveal(path: String) {
 fn open_url(url: String) {
     if url.starts_with("http://") || url.starts_with("https://") {
         let _ = Command::new("open").arg(url).spawn();
-    }
-}
-
-#[tauri::command]
-fn quicklook(path: String) {
-    if std::path::Path::new(&path).exists() {
-        let _ = Command::new("qlmanage").arg("-p").arg(path).spawn();
-    }
-}
-
-/// Unstaged diff for one file (falls back to diff vs HEAD for staged edits).
-#[tauri::command]
-fn artifact_diff(cwd: String, path: String) -> String {
-    let run = |args: &[&str]| {
-        Command::new("git")
-            .arg("-C").arg(&cwd)
-            .args(args)
-            .arg("--").arg(&path)
-            .output()
-            .ok()
-            .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
-            .unwrap_or_default()
-    };
-    let mut out = run(&["diff", "--no-color"]);
-    if out.trim().is_empty() {
-        out = run(&["diff", "--no-color", "HEAD"]);
-    }
-    if out.trim().is_empty() {
-        "(no uncommitted changes for this file)".into()
-    } else {
-        out
     }
 }
 
@@ -715,13 +649,9 @@ async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn notify_user(title: String, body: String) {
-    let script = format!(
-        "display notification \"{}\" with title \"{}\"",
-        body.replace('\\', "\\\\").replace('"', "\\\""),
-        title.replace('\\', "\\\\").replace('"', "\\\"")
-    );
-    let _ = Command::new("osascript").arg("-e").arg(script).spawn();
+fn notify_user(app: tauri::AppHandle, title: String, body: String) {
+    use tauri_plugin_notification::NotificationExt;
+    let _ = app.notification().builder().title(&title).body(&body).show();
 }
 
 /// `lsof` the session's cwd (same trick as the Electron app).
@@ -776,7 +706,6 @@ fn spawn_proc_loop(app: tauri::AppHandle, state: Arc<AppState>) {
                 children.entry(ppid).or_default().push(base);
             }
         }
-        let mut rising = Vec::new();
         {
             let mut sessions = state.sessions.lock().unwrap();
             for (id, s) in sessions.iter_mut() {
@@ -789,115 +718,11 @@ fn spawn_proc_loop(app: tauri::AppHandle, state: Arc<AppState>) {
                     .unwrap_or_else(|| "shell".into());
                 let active = agent.is_some();
                 if proc != s.proc || active != s.agent_active {
-                    let rose = active && !s.agent_active;
                     s.proc = proc.clone();
                     s.agent_active = active;
                     let _ = app.emit("pty://proc", ProcPayload { id: *id, proc, active });
-                    if rose {
-                        rising.push(*id);
-                    }
                 }
             }
-        }
-        // Each time an agent starts, (re)point the watcher at the current cwd.
-        for id in rising {
-            ensure_watch(&app, &state, id);
-        }
-    });
-}
-
-/// Watch the session's cwd for files an agent writes/edits, while it is active.
-fn ensure_watch(_app: &tauri::AppHandle, state: &Arc<AppState>, id: u32) {
-    let (pid, current) = {
-        let sessions = state.sessions.lock().unwrap();
-        match sessions.get(&id) {
-            Some(s) => (s.pid, s.watch_dir.clone()),
-            None => return,
-        }
-    };
-    let cwd = get_cwd(pid);
-    // Refuse overly broad roots.
-    if cwd.is_empty() || cwd == "/" || cwd == home() || !std::path::Path::new(&cwd).is_dir() {
-        return;
-    }
-    if current.as_deref() == Some(cwd.as_str()) {
-        return; // already watching this dir
-    }
-
-    let st = state.clone();
-    let watch_cwd = cwd.clone();
-    let mut watcher = match notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
-        use notify::EventKind;
-        let Ok(event) = res else { return };
-        if !matches!(event.kind, EventKind::Create(_) | EventKind::Modify(_)) {
-            return;
-        }
-        let mut sessions = st.sessions.lock().unwrap();
-        let Some(s) = sessions.get_mut(&id) else { return };
-        if !s.agent_active {
-            return; // only while an agent is the foreground process
-        }
-        let now = now_ms();
-        let mut changed = false;
-        for p in &event.paths {
-            if !p.is_file() {
-                continue;
-            }
-            let ps = p.to_string_lossy().to_string();
-            if ignored(&ps) {
-                continue;
-            }
-            s.artifacts.insert(ps, ("edit".into(), now));
-            changed = true;
-        }
-        if changed {
-            s.artifacts_dirty = true;
-        }
-    }) {
-        Ok(w) => w,
-        Err(_) => return,
-    };
-
-    use notify::Watcher;
-    if watcher
-        .watch(std::path::Path::new(&watch_cwd), notify::RecursiveMode::Recursive)
-        .is_err()
-    {
-        return;
-    }
-    let mut sessions = state.sessions.lock().unwrap();
-    if let Some(s) = sessions.get_mut(&id) {
-        s.watcher = Some(watcher);
-        s.watch_dir = Some(watch_cwd);
-    }
-}
-
-/// Debounce + push artifact lists to the webview (coalesces bursty fs events).
-fn spawn_artifacts_loop(app: tauri::AppHandle, state: Arc<AppState>) {
-    thread::spawn(move || loop {
-        thread::sleep(Duration::from_millis(300));
-        let mut updates = Vec::new();
-        {
-            let mut sessions = state.sessions.lock().unwrap();
-            for (id, s) in sessions.iter_mut() {
-                if s.artifacts_dirty {
-                    s.artifacts_dirty = false;
-                    let mut list: Vec<ArtifactRecord> = s
-                        .artifacts
-                        .iter()
-                        .map(|(p, (tool, time))| ArtifactRecord {
-                            path: p.clone(),
-                            tool: tool.clone(),
-                            time: *time,
-                        })
-                        .collect();
-                    list.sort_by(|a, b| b.time.cmp(&a.time));
-                    updates.push((*id, list));
-                }
-            }
-        }
-        for (id, list) in updates {
-            let _ = app.emit("artifacts://update", ArtifactsPayload { id, list });
         }
     });
 }
@@ -948,6 +773,8 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         // Remember window size/position across launches.
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        // Notifications post through the app bundle so they carry PRISM's name and icon.
+        .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
             app_home,
             pty_spawn,
@@ -955,9 +782,7 @@ fn main() {
             pty_resize,
             pty_kill,
             set_active,
-            artifact_reveal,
-            quicklook,
-            artifact_diff,
+            reveal_path,
             open_in_editor,
             set_badge,
             notify_user,
@@ -987,7 +812,6 @@ fn main() {
 
             spawn_proc_loop(app.handle().clone(), state.clone());
             spawn_footer_loop(app.handle().clone(), state.clone());
-            spawn_artifacts_loop(app.handle().clone(), state.clone());
             spawn_api_loop(app.handle().clone(), state.clone());
             Ok(())
         })

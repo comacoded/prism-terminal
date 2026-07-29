@@ -157,11 +157,10 @@
     <section id="tour">
       <h2>Interface tour</h2>
       <ul>
-        <li><strong>Tab strip</strong> (top): tabs with live status dots, group chips, and the + button. The two buttons on the right toggle the artifacts rail and settings.</li>
+        <li><strong>Tab strip</strong> (top): tabs with live status dots, group chips, and the + button. The button on the right opens settings.</li>
         <li><strong>Status dots</strong>: violet means an agent is actively working in that tab, blue means an agent is running but idle (often waiting on you), gray is a plain shell, red means the shell exited.</li>
         <li><strong>The glow</strong>: while an agent in the active tab is generating, the window wears an animated gradient border. It stops when the agent goes quiet.</li>
         <li><strong>Footer</strong>: working directory, git branch, last command's exit status and duration, foreground process, and session uptime.</li>
-        <li><strong>Artifacts rail</strong> (right): appears when an agent writes files. See <a href="#agents">Agent supervision</a>.</li>
       </ul>
     </section>
 
@@ -169,6 +168,14 @@
       <h2>What’s new</h2>
       <div class="latest" id="latest">Latest release: <strong id="latest-ver">…</strong></div>
       <p>PRISM updates itself. Install new versions from <strong>Settings → Updates</strong>. Recent releases:</p>
+
+      <h3>0.4.0 <span class="cl-tag">color + focus</span></h3>
+      <ul>
+        <li><strong>Themes drive the whole window</strong>: picking a theme now sets the window background, not just the terminal palette.</li>
+        <li><strong>Theme agent colors</strong>: coding agents paint themselves in hardcoded 24-bit color, so no theme ever touched them. PRISM now remaps that output onto your palette, matching by hue so an agent's orange lands on your theme's orange. Foregrounds re-render when you switch themes; diff highlights become a tint of your background instead of a slab of color. Toggle in Settings → Appearance.</li>
+        <li><strong>Notifications</strong> now come from PRISM itself, with the app icon and name.</li>
+        <li><strong>The artifacts rail has been removed.</strong> Watching the working directory and listing an agent's files duplicated what your editor already does well. Agent supervision stays where it belongs: the work glow, tab states, needs-you notifications, and mission control.</li>
+      </ul>
 
       <h3>0.3.1 <span class="cl-tag">comfort</span></h3>
       <ul>
@@ -208,14 +215,13 @@
         <li><strong>Universal binary</strong>: runs natively on Intel and Apple silicon.</li>
         <li><strong>Needs-you notifications</strong>: when an agent finishes while you’re away, PRISM notifies you and badges the Dock.</li>
         <li><strong>Semantic history</strong>: ⌘-click any printed file path to open it in your editor.</li>
-        <li><strong>Artifacts</strong>: Quick Look and a git-diff overlay per file.</li>
         <li><strong>Splits</strong>: zoom a pane (<kbd>⇧⌘↵</kbd>), drag dividers to resize, broadcast input (<kbd>⇧⌘B</kbd>).</li>
         <li><strong>Command history</strong> in the palette, and <strong>theme import</strong> for iTerm and Ghostty themes.</li>
       </ul>
 
       <h3>0.1.0 <span class="cl-tag">first release</span></h3>
       <ul>
-        <li>The agent layer: work glow, tab states, the artifacts rail, and mission control.</li>
+        <li>The agent layer: work glow, tab states, and mission control.</li>
         <li>Tabs with Chrome-style groups, drag to reorder and regroup, and rename.</li>
         <li>Session restore with scrollback, the socket API and <code>prism</code> CLI, ten themes with light mode, scrollback search, automatic shell integration, and the global summon hotkey.</li>
       </ul>
@@ -242,8 +248,8 @@
       <h2>Split panes</h2>
       <ul>
         <li><kbd>⌘D</kbd> splits right, <kbd>⇧⌘D</kbd> splits down; up to four panes per tab, one direction per tab in v1.</li>
-        <li>Every pane is a full independent shell with its own agent detection, prompt marks, and artifacts.</li>
-        <li><strong>Click a pane to focus it</strong>; the focused pane wears an accent border and drives the footer, artifacts rail, search, and prompt navigation. <kbd>⌘W</kbd> closes the focused pane.</li>
+        <li>Every pane is a full independent shell with its own agent detection and prompt marks.</li>
+        <li><strong>Click a pane to focus it</strong>; the focused pane wears an accent border and drives the footer, search, and prompt navigation. <kbd>⌘W</kbd> closes the focused pane.</li>
         <li><strong>Resize</strong> by dragging the divider between panes.</li>
         <li><strong>Zoom</strong> the focused pane to fill the tab with <kbd>⇧⌘↵</kbd>; toggle again to restore the layout.</li>
         <li><strong>Broadcast input</strong> with <kbd>⇧⌘B</kbd>: whatever you type in the focused pane is sent to every pane in the tab (footer shows "broadcast" while it's on).</li>
@@ -305,7 +311,6 @@
         <tr><td><kbd>⌘P</kbd></td><td>Command palette</td></tr>
         <tr><td><kbd>⌘K</kbd></td><td>Clear terminal</td></tr>
         <tr><td><kbd>⌘↑</kbd> / <kbd>⌘↓</kbd></td><td>Previous / next prompt</td></tr>
-        <tr><td><kbd>⇧⌘A</kbd></td><td>Toggle artifacts rail</td></tr>
         <tr><td><kbd>⌘,</kbd></td><td>Settings</td></tr>
         <tr><td><kbd>⌘+</kbd> / <kbd>⌘−</kbd> / <kbd>⌘0</kbd></td><td>Text size up / down / reset</td></tr>
         <tr><td><kbd>⌃`</kbd></td><td>Summon or dismiss PRISM from anywhere (global)</td></tr>
@@ -328,14 +333,8 @@
         <li>While an agent is <strong>actively generating</strong>, its tab dot turns violet and the window wears the animated gradient border. Detection reads the live screen for the agent's status line, so the glow holds steadily for the whole turn.</li>
         <li>When the agent is running but idle, the dot turns blue: usually it's waiting on you.</li>
       </ul>
-      <h3>Artifacts rail</h3>
-      <ul>
-        <li>While an agent is active, PRISM watches the session's working directory. Every file the agent creates or edits appears in the rail, newest first, with the working folder shown in the header.</li>
-        <li>The rail <strong>opens itself</strong> when files start landing in the active tab, follows you between tabs, and stays closed for a session once you dismiss it. Files landing in a background tab pulse the rail button instead.</li>
-        <li>Click any entry to reveal the file in Finder. Hovering a row shows two more actions: <strong>Quick Look</strong> (eye) and <strong>git diff</strong>, which opens the file's uncommitted changes in an overlay.</li>
-      </ul>
       <h3>Mission control</h3>
-      <p><kbd>⌘E</kbd> shows every tab as a live card: state and time in state, working directory, branch, group, pane count, and the last files touched. Click a card to jump in.</p>
+      <p><kbd>⌘E</kbd> shows every tab as a live card: state and time in state, working directory, branch, group, and pane count. Click a card to jump in.</p>
       <h3>Notifications</h3>
       <ul>
         <li><strong>When an agent needs you</strong>: if an agent stops generating while you're in another tab or app, PRISM notifies you, pulses that tab's dot amber, and badges the Dock icon with the count of waiting agents. Everything clears when you return to the tab.</li>
@@ -451,7 +450,7 @@
     if (el && m.version) el.textContent = 'v' + m.version;
   }).catch(() => {
     const el = document.getElementById('latest-ver');
-    if (el) el.textContent = 'v0.3.1';
+    if (el) el.textContent = 'v0.4.0';
   });
 </script>
 </body>

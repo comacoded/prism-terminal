@@ -2,7 +2,7 @@
 
 PRISM is a macOS terminal built for supervising AI coding agents. It pairs a
 glass, native-vibrancy aesthetic with agent awareness no other terminal has:
-it knows when an agent is working, what files it touched, and when it needs
+it knows when an agent is working, when it goes quiet, and when it needs
 you. Terminal emulation is provided by xterm.js (the engine inside VS Code's
 integrated terminal), so compatibility tracks the most battle-tested web
 terminal in the world.
@@ -23,17 +23,9 @@ rendering, portable-pty, zsh shell integration injected via ZDOTDIR.
 - **Tab states.** Each tab's dot reflects its session: violet = agent working,
   blue = agent running but idle (waiting on you), gray = plain shell,
   red = exited.
-- **Artifacts rail** (automatic; Cmd+Shift+A to override). While an agent is
-  active, PRISM watches the session's working directory and lists every file
-  the agent creates or edits, newest first, with relative timestamps and the
-  working folder in the header. The rail opens itself when the active tab's
-  agent produces files, follows you between tabs (open where there are
-  artifacts, closed where there aren't), and stays closed for a session once
-  you dismiss it manually. Click any entry to reveal it in Finder; hover for
-  Quick Look and a git-diff overlay of that file's uncommitted changes.
 - **Mission control** (Cmd+E). A grid of every session: title, state and how
-  long it has been in that state, working directory, git branch, and the last
-  files touched. Working sessions get a violet border. Click a card to jump
+  long it has been in that state, working directory, and git branch.
+  Working sessions get a violet border. Click a card to jump
   to that session.
 
 ## Terminal features
@@ -47,7 +39,7 @@ rendering, portable-pty, zsh shell integration injected via ZDOTDIR.
   of any pane in the visible tab: a highlight previews the half it will
   occupy, and dropping merges it into the layout right there. Click a pane
   to focus it; the focused pane wears an accent border, gets Cmd+W'd first,
-  and drives the footer, artifacts rail, and search. Drag any divider to
+  and drives the footer and search. Drag any divider to
   resize its two neighbors. Cmd+Shift+Enter zooms the focused pane to fill
   the tab (toggle). Cmd+Shift+B broadcasts typed input to every pane in the
   tab. Cmd+Shift+W closes just the focused split (never the whole tab);
@@ -117,14 +109,28 @@ rendering, portable-pty, zsh shell integration injected via ZDOTDIR.
   Cyber Wave, Nord, One Dark, Solarized Dark, Gruvbox Dark, Catppuccin
   Mocha, plus imported iTerm .itermcolors and Ghostty theme files); the
   Light theme flips the entire chrome to a light appearance.
-  Plus text size (10 to 20, also Cmd+plus / Cmd+minus / Cmd+0), glass tint,
-  cursor style (bar / block / underline) and blink, work-glow toggle, a
-  reset-to-defaults button, and a full shortcuts reference. Persisted
-  across launches.
+  The active theme also sets the window background.
+  Plus text size (10 to 20, also Cmd+plus / Cmd+minus / Cmd+0), glass tint
+  with a solid-background switch for anyone who wants no transparency at
+  all, terminal scroll speed, cursor style (bar / block / underline) and
+  blink, work-glow toggle, a reset-to-defaults button, and a full shortcuts
+  reference. Persisted across launches.
+- **Theme agent colors** (Settings → Appearance, on by default). Coding
+  agents paint themselves in hardcoded 24-bit color, which bypasses the
+  palette, so no theme could ever touch their output. PRISM rewrites those
+  color escapes on the way in, matching each one to the nearest palette
+  entry in Oklab with hue weighted above chroma and lightness, so an
+  agent's orange lands on your theme's orange rather than whatever is
+  numerically closest. Foregrounds become palette indices, so existing
+  scrollback recolors when you switch themes. A lone background (diff
+  highlights) becomes a tint of the theme background; a run that sets
+  foreground and background together keeps both at full strength so its
+  contrast survives.
 - **Terminal fonts.** Bundled JetBrains Mono, Fira Code, Iosevka, and
   Monocraft, plus your own: import a .ttf/.otf/.woff2 file (stored in app
   data, loads on every launch) or add any installed system font by name.
-- **Fast scrolling.** 8x wheel scrolling; hold Alt for 20x.
+- **Fast scrolling.** Wheel speed is adjustable in Settings (default 8x);
+  hold Alt for 2.5x whatever you set.
 - **GPU rendering.** WebGL renderer with automatic DOM-renderer fallback.
 - **Footer context.** Working directory (tilde-shortened), git branch,
   foreground process, session uptime, live-updated.
@@ -201,7 +207,6 @@ unfocused, so foreground work never spams you.
 | Cmd+P | Command palette |
 | Cmd+K | Clear terminal |
 | Cmd+Up / Cmd+Down | Previous / next prompt |
-| Cmd+Shift+A | Toggle artifacts rail |
 | Cmd+Shift+Enter | Zoom focused pane |
 | Cmd+Shift+B | Broadcast input to panes |
 | Cmd+click path | Open file in editor |
@@ -233,8 +238,8 @@ unfocused, so foreground work never spams you.
 ## Architecture notes
 
 - `src-tauri/src/main.rs`: PTY spawn/IO (portable-pty), process-tree polling
-  (agent detection), cwd/branch footer loop, recursive fs watcher for
-  artifacts, zsh integration file generation, notifications, global hotkey.
+  (agent detection), cwd/branch footer loop, zsh integration file
+  generation, notifications, global hotkey.
 - `src/main.js`: xterm.js setup + addons, OSC handlers, tabs, glow scanner,
   overlays (find/palette/mission), session persistence.
 - `src/styles.css`: all chrome styling.
