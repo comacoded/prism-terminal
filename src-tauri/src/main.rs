@@ -33,6 +33,7 @@ struct AppState {
     next_id: Mutex<u32>,
     active: Mutex<Option<u32>>,
     api_pending: Mutex<HashMap<u64, std::sync::mpsc::Sender<String>>>,
+    config_stamp: Mutex<Option<std::time::SystemTime>>,
     api_counter: Mutex<u64>,
 }
 
@@ -250,7 +251,66 @@ fn api_socket_path(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     Some(app_data_dir(app)?.join("prism.sock"))
 }
 
-/// Full session snapshot (tabs, panes, serialized scrollback) lives on disk;
+/// Settings live in a hand-editable TOML file, the way terminal users expect:
+/// ~/.config/prism/prism.toml. The webview owns the settings shape, so this side
+/// only converts between JSON and TOML and watches the file for outside edits.
+fn config_file() -> std::path::PathBuf {
+    std::path::Path::new(&home()).join(".config").join("prism").join("prism.toml")
+}
+#[tauri::command]
+fn config_path() -> String {
+    config_file().to_string_lossy().into_owned()
+}
+/// Returns the file parsed into JSON, or None when there is no config yet.
+#[tauri::command]
+fn config_load() -> Option<String> {
+    let text = std::fs::read_to_string(config_file()).ok()?;
+    let value: toml::Value = toml::from_str(&text).ok()?;
+    serde_json::to_string(&value).ok()
+}
+#[tauri::command]
+fn config_save(state: tauri::State<'_, Arc<AppState>>, data: String) -> Result<(), String> {
+    let json: serde_json::Value = serde_json::from_str(&data).map_err(|e| e.to_string())?;
+    let toml_value = toml::Value::try_from(&json).map_err(|e| e.to_string())?;
+    let body = toml::to_string_pretty(&toml_value).map_err(|e| e.to_string())?;
+    let path = config_file();
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    let text = format!(
+        "# PRISM settings. Edited here or in the app; changes load immediately.\n\
+         # Delete a line to fall back to its default.\n\n{body}"
+    );
+    std::fs::write(&path, text).map_err(|e| e.to_string())?;
+    // Remember our own write so the watcher below doesn't echo it back.
+    *state.config_stamp.lock().unwrap() = config_mtime();
+    Ok(())
+}
+fn config_mtime() -> Option<std::time::SystemTime> {
+    std::fs::metadata(config_file()).ok()?.modified().ok()
+}
+/// Poll for outside edits (a text editor, a dotfile sync) and tell the webview.
+/// Polling rather than a watcher: one stat every 1.5s costs nothing and avoids
+/// pulling a filesystem-notification crate back in for a single file.
+fn spawn_config_watch(app: tauri::AppHandle, state: Arc<AppState>) {
+    thread::spawn(move || {
+        *state.config_stamp.lock().unwrap() = config_mtime();
+        loop {
+            thread::sleep(Duration::from_millis(1500));
+            let now = config_mtime();
+            let mut last = state.config_stamp.lock().unwrap();
+            if now != *last {
+                *last = now;
+                drop(last);
+                if let Some(json) = config_load() {
+                    let _ = app.emit("config://changed", json);
+                }
+            }
+        }
+    });
+}
+
+/// Full session snapshot (tabs, panes, split layout) lives on disk;
 /// it can reach megabytes, which is too big for localStorage.
 #[tauri::command]
 fn session_save(app: tauri::AppHandle, data: String) -> Result<(), String> {
@@ -789,6 +849,9 @@ fn main() {
             open_url,
             session_save,
             session_load,
+            config_path,
+            config_load,
+            config_save,
             api_respond,
             app_version,
             set_summon_shortcut,
@@ -812,9 +875,40 @@ fn main() {
 
             spawn_proc_loop(app.handle().clone(), state.clone());
             spawn_footer_loop(app.handle().clone(), state.clone());
+            spawn_config_watch(app.handle().clone(), state.clone());
             spawn_api_loop(app.handle().clone(), state.clone());
             Ok(())
         })
         .run(tauri::generate_context!())
         .expect("error while running PRISM");
+}
+
+#[cfg(test)]
+mod config_tests {
+    /// Settings mix scalars with nested tables and arrays; TOML serializers can
+    /// refuse when a scalar follows a table, so pin the round-trip.
+    #[test]
+    fn settings_round_trip_through_toml() {
+        let json_text = r##"{
+            "fontSize": 13.5, "tint": 45, "opaque": false, "ligatures": true,
+            "theme": "gruvbox", "colorRules": {"orange": "original", "red": 4},
+            "keys": {"find": {"mods": "meta", "key": "f"}},
+            "custom": [{"key": "mine", "label": "Mine", "bg": "#101010"}],
+            "userFonts": [], "scroll": 8, "summon": "ctrl+`"
+        }"##;
+        let json: serde_json::Value = serde_json::from_str(json_text).unwrap();
+        let toml_value = toml::Value::try_from(&json).expect("json -> toml::Value");
+        let text = toml::to_string_pretty(&toml_value).expect("toml serialize");
+        let back: toml::Value = toml::from_str(&text).expect("toml parse");
+        let json_back: serde_json::Value =
+            serde_json::from_str(&serde_json::to_string(&back).unwrap()).unwrap();
+        assert_eq!(json_back["fontSize"], 13.5);
+        assert_eq!(json_back["ligatures"], true);
+        assert_eq!(json_back["colorRules"]["orange"], "original");
+        assert_eq!(json_back["colorRules"]["red"], 4);
+        assert_eq!(json_back["keys"]["find"]["key"], "f");
+        assert_eq!(json_back["custom"][0]["label"], "Mine");
+        assert_eq!(json_back["summon"], "ctrl+`");
+        assert!(json_back["userFonts"].as_array().unwrap().is_empty());
+    }
 }

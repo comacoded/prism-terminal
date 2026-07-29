@@ -1,6 +1,6 @@
 [package]
 name = "prism-spike"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 rust-version = "1.77"
 
@@ -17,6 +17,7 @@ tauri-plugin-updater = "2.0.0-rc.4"
 tauri-plugin-window-state = "2"
 tauri-plugin-notification = "2"
 serde_json = "1.0.150"
+toml = "0.8"
 
 [target."cfg(target_os = \"macos\")".dependencies]
 window-vibrancy = "0.5"

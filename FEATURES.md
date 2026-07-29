@@ -115,20 +115,50 @@ rendering, portable-pty, zsh shell integration injected via ZDOTDIR.
   all, terminal scroll speed, cursor style (bar / block / underline) and
   blink, work-glow toggle, a reset-to-defaults button, and a full shortcuts
   reference. Persisted across launches.
-- **Theme agent colors** (Settings → Appearance, on by default). Coding
-  agents paint themselves in hardcoded 24-bit color, which bypasses the
-  palette, so no theme could ever touch their output. PRISM rewrites those
-  color escapes on the way in, matching each one to the nearest palette
-  entry in Oklab with hue weighted above chroma and lightness, so an
-  agent's orange lands on your theme's orange rather than whatever is
-  numerically closest. Foregrounds become palette indices, so existing
-  scrollback recolors when you switch themes. A lone background (diff
-  highlights) becomes a tint of the theme background; a run that sets
-  foreground and background together keeps both at full strength so its
-  contrast survives.
+- **Color mode** (Settings → Appearance → Agent colors). **Default** leaves every program's
+  colors exactly as sent, which is how they look in any other terminal and
+  the way back if theming is not for you. **Match my theme** turns on the
+  remapping below. Because colors are rewritten as output arrives, a mode
+  change applies to new output; text already on screen keeps the colors it
+  was drawn with. A "Reset colors to default" button returns the whole pane
+  (mode, per-family rules, backgrounds) to untouched in one click.
+- **Matching to your theme.** Coding agents
+  paint themselves in hardcoded 24-bit color, which bypasses the palette, so
+  no theme could ever touch their output. In Match mode PRISM rewrites those escapes
+  on the way in, matching each to the nearest palette entry in Oklab with hue
+  weighted above chroma and lightness, so an agent's orange lands on your
+  theme's orange rather than whatever is numerically closest. Foregrounds
+  become palette indices, so existing scrollback recolors when you switch
+  themes.
+- **Keep logos and art** (on by default). A line made mostly of block,
+  box-drawing, braille or emoji glyphs is a picture, not prose, so it keeps
+  the colors the program chose. Brand marks and image renders survive
+  theming; a line with a single bullet in it does not count as art and is
+  still themed.
+- **Per-color rules.** The Agent colors pane lists the nine families an agent's
+  output falls into (red, orange, yellow, green, cyan, blue, purple, magenta,
+  greys, bucketed by OkLCh hue). Each can be left on Auto, pinned to any of
+  the sixteen palette entries, or set to "Default (as sent)" to keep a brand
+  color exactly as the program wrote it. Backgrounds get their own control: a tint of your
+  background (with an adjustable strength), full strength, or untouched.
+  A pinned live preview renders a Claude Code session or a block of code
+  through the real pipeline, so every change is visible as you make it.
 - **Terminal fonts.** Bundled JetBrains Mono, Fira Code, Iosevka, and
   Monocraft, plus your own: import a .ttf/.otf/.woff2 file (stored in app
   data, loads on every launch) or add any installed system font by name.
+- **Ligatures** (Settings > Terminal, off by default). Sequences like `=>`,
+  `!==` and `->` render as their ligature glyphs in fonts that have them
+  (JetBrains Mono, Fira Code, Iosevka all ship with PRISM). The official
+  xterm addon needs Node APIs and cannot run in a webview, so PRISM joins the
+  sequences itself through xterm's character-joiner API, which the WebGL
+  renderer honours: GPU rendering and ligatures together, no DOM-renderer
+  fallback and no loss of cell alignment.
+- **Configuration file.** Every setting is mirrored to
+  `~/.config/prism/prism.toml`, a commented TOML file you can edit, diff, and
+  sync across machines. The app writes it on change (debounced) and watches it
+  for outside edits, adopting them live: save in your editor and the running
+  terminal updates. Delete any line to fall back to its default. Settings >
+  About has the path plus Open and Reveal buttons.
 - **Fast scrolling.** Wheel speed is adjustable in Settings (default 8x);
   hold Alt for 2.5x whatever you set.
 - **GPU rendering.** WebGL renderer with automatic DOM-renderer fallback.
@@ -189,7 +219,7 @@ On top of that, PRISM enables or implements:
 | OSC 777;notify | Yes | urxvt style title;body → macOS notification |
 | Kitty graphics protocol | Yes | Custom APC interceptor + overlay renderer: PNG/RGB/RGBA, direct + file + temp-file media, chunking, zlib, queries (kitten icat works), delete; video via rapid frame replacement (mpv --vo=kitty, timg) |
 | Kitty keyboard protocol | No | Not supported by xterm.js |
-| Ligatures | No | Not supported with the WebGL renderer |
+| Ligatures | Yes | Optional; Settings > Terminal (works with the GPU renderer) |
 
 Notifications from OSC 9/777 only fire when the tab is inactive or PRISM is
 unfocused, so foreground work never spams you.
@@ -233,7 +263,6 @@ unfocused, so foreground work never spams you.
   prompt marks, duration chips, and OSC 7 (cwd falls back to lsof polling).
 - Kitty graphics: no Unicode placeholders, animation frames (a=f), or
   shared-memory transfers; kitty keyboard protocol still unsupported.
-- Ligatures are not supported with the WebGL renderer.
 
 ## Architecture notes
 

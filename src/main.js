@@ -100,6 +100,40 @@ function termTheme() {
   };
 }
 
+// --- Ligatures -----------------------------------------------------------------
+// The official addon is Node-only (font-finder/font-ligatures read font files off
+// disk), so it can't run in a webview. But character joiners are public xterm API
+// and the WebGL renderer honours them, so joining the sequences ourselves gets
+// real GPU-rendered ligatures: the joined run is shaped as one string, which is
+// what lets the font's OpenType substitutions fire. Longest alternatives first,
+// or "===" would match "==" and leave a stray "=".
+const LIGATURE_RE = new RegExp([
+  '<==>', '<!--', '-->', '<-->', '===', '!==', '\\.\\.\\.', '<<=', '>>=', '<=>', '<->',
+  '\\|\\|>', '<\\|\\|', '=>>', '=<<', '///', '\\*\\*\\*',
+  '=>', '==', '!=', '>=', '<=', '<>', '->', '<-', '>>', '<<', '\\|\\|', '&&',
+  '\\+\\+', '--', '\\*\\*', '//', '/\\*', '\\*/', '::', ':=', '\\?\\?', '\\?\\.',
+  '\\|=', '\\|>', '<\\|', '~~', '~>', '<~', '\\.\\.', '=~', '!~', '/=',
+].join('|'), 'g');
+function ligatureJoiner(text) {
+  const out = [];
+  LIGATURE_RE.lastIndex = 0;
+  let m;
+  while ((m = LIGATURE_RE.exec(text)) !== null) out.push([m.index, m.index + m[0].length]);
+  return out;
+}
+function applyLigatures(p) {
+  const want = !!settings.ligatures;
+  if (want && p.joinerId == null) {
+    p.joinerId = p.term.registerCharacterJoiner(ligatureJoiner);
+  } else if (!want && p.joinerId != null) {
+    p.term.deregisterCharacterJoiner(p.joinerId);
+    p.joinerId = null;
+  } else {
+    return; // already in the requested state
+  }
+  p.term.refresh(0, p.term.rows - 1); // repaint what is already on screen
+}
+
 // --- Theme-snapped colors ------------------------------------------------------
 // Agents (Claude Code, Codex) paint themselves in hardcoded 24-bit color, which
 // ignores the palette entirely — switch themes and their output stays put. When
@@ -158,10 +192,45 @@ function colorDist(a, b) {
   const dH = 2 * Math.sqrt(a.C * b.C) * Math.sin(dh / 2) * W_H;
   return dL * dL + dC * dC + dH * dH;
 }
+// Incoming colors are bucketed into hue families so the Colors pane can offer
+// one rule per family instead of per raw value. Bounds are OkLCh degrees, fixed
+// against measured values: pure red 29, Claude's terracotta 39, orange 53,
+// yellow 110, green 142, cyan 195, blue 264, magenta 328, pink 347.
+const FAMILIES = [
+  { key: 'red',     label: 'Red',     from: 350, to: 35,  swatch: '#e5484d' },
+  { key: 'orange',  label: 'Orange',  from: 35,  to: 70,  swatch: '#d77157' },
+  { key: 'yellow',  label: 'Yellow',  from: 70,  to: 125, swatch: '#e3b341' },
+  { key: 'green',   label: 'Green',   from: 125, to: 170, swatch: '#56d364' },
+  { key: 'cyan',    label: 'Cyan',    from: 170, to: 215, swatch: '#76e3ea' },
+  { key: 'blue',    label: 'Blue',    from: 215, to: 285, swatch: '#79b8ff' },
+  { key: 'purple',  label: 'Purple',  from: 285, to: 322, swatch: '#b388ff' },
+  { key: 'magenta', label: 'Magenta', from: 322, to: 350, swatch: '#e85aad' },
+  { key: 'neutral', label: 'Greys',   from: null, to: null, swatch: '#8e8e93' },
+];
+const NEUTRAL_C = 0.045; // below this chroma a color reads as grey, not a hue
+function familyOf(lab) {
+  if (lab.C < NEUTRAL_C) return 'neutral';
+  let deg = (lab.h * 180) / Math.PI;
+  if (deg < 0) deg += 360;
+  for (const f of FAMILIES) {
+    if (f.from === null) continue;
+    if (f.from > f.to ? (deg >= f.from || deg < f.to) : (deg >= f.from && deg < f.to)) return f.key;
+  }
+  return 'red';
+}
+// 'auto' = snap to the nearest palette entry, 'original' = leave the color
+// exactly as the program sent it, a number = always use that palette index.
+function ruleFor(family) {
+  const r = (settings.colorRules || {})[family];
+  return r === undefined || r === null ? 'auto' : r;
+}
 let paletteCache = null;
 function themePalette() {
   const t = currentTheme();
-  if (paletteCache && paletteCache.theme === t) return paletteCache;
+  // The rewrite memo below bakes in the mapping rules, so a rule change has to
+  // invalidate it just as a theme change does.
+  const sig = `${JSON.stringify(settings.colorRules || {})}|${settings.bgMode}|${settings.bgTint}`;
+  if (paletteCache && paletteCache.theme === t && paletteCache.sig === sig) return paletteCache;
   const slots = [];
   ANSI_NAMES.forEach((name, i) => {
     const rgb = hexRgb(t.colors[name]);
@@ -169,8 +238,12 @@ function themePalette() {
   });
   const fg = hexRgb(t.colors.foreground);
   if (fg) slots.push({ idx: -1, rgb: fg, lab: labParts(srgbToOklab(fg)) }); // -1 => SGR 39, the theme default
-  paletteCache = { theme: t, slots, bg: hexRgb(t.bg) || [10, 11, 16], memo: new Map(), seqs: new Map() };
+  paletteCache = { theme: t, sig, slots, bg: hexRgb(t.bg) || [10, 11, 16], memo: new Map(), seqs: new Map() };
   return paletteCache;
+}
+function paletteSlot(idx) {
+  const p = themePalette();
+  return p.slots.find((s) => s.idx === idx) || p.slots[0];
 }
 function nearestSlot(rgb) {
   const p = themePalette();
@@ -237,11 +310,23 @@ function snapSgrParams(str) {
       i += spec.consumed;
       continue;
     }
-    const slot = nearestSlot(spec.rgb);
+    const lab = labParts(srgbToOklab(spec.rgb));
+    const rule = ruleFor(familyOf(lab));
+    const bgMode = settings.bgMode || 'tint';
+    if (rule === 'original' || (head === '48' && bgMode === 'original')) {
+      out.push(t); // leave the program's own color alone
+      for (let k = 1; k <= spec.consumed; k++) out.push(toks[i + k]);
+      i += spec.consumed;
+      continue;
+    }
+    const slot = rule === 'auto' ? nearestSlot(spec.rgb) : paletteSlot(rule);
     if (head === '38') {
       out.push(slot.idx < 0 ? '39' : `38;5;${slot.idx}`);
     } else {
-      const rgb = pair ? slot.rgb : tintOverBg(slot.rgb, 0.28);
+      // A run that sets fg AND bg together keeps the bg at full strength so its
+      // contrast survives; a lone bg (a diff highlight) becomes a tint instead.
+      const full = pair || bgMode === 'full';
+      const rgb = full ? slot.rgb : tintOverBg(slot.rgb, (settings.bgTint ?? 28) / 100);
       out.push(`48;2;${rgb[0]};${rgb[1]};${rgb[2]}`);
     }
     i += spec.consumed;
@@ -249,8 +334,25 @@ function snapSgrParams(str) {
   }
   return changed ? out.join(';') : null;
 }
+// Block, box-drawing, geometric, braille, dingbat and emoji glyphs — what logos,
+// ANSI art and image renderers are built out of. A line made mostly of these is
+// a picture, not prose, and recoloring it destroys the thing it depicts.
+const ART_CHAR = /[←-⯿⠀-⣿️•]|[\uD83C-\uDBFF][\uDC00-\uDFFF]/;
+const CSI_RE = /\x1b\[[0-9;:]*[ -/]*[@-~]|\x1b[@-Z\\-_]/g;
+function looksLikeArt(str) {
+  let art = 0, ink = 0;
+  for (const ch of str.replace(CSI_RE, '')) {
+    if (ch === ' ' || ch === '\n' || ch === '\r' || ch === '\t') continue;
+    ink++;
+    if (ART_CHAR.test(ch)) art++;
+  }
+  // Mostly-glyph lines are art. A lone bullet in "● Read main.js" is not:
+  // that line is overwhelmingly letters, so it still gets themed.
+  return art >= 2 && art >= ink * 0.7;
+}
 const SGR_CARRY_MAX = 96; // longest partial CSI worth holding for the next chunk
 const latin1Dec = new TextDecoder('latin1');
+const utf8Dec = new TextDecoder('utf-8');
 const utf8Enc = new TextEncoder();
 function concatBytes(parts, total) {
   const out = new Uint8Array(total);
@@ -271,6 +373,7 @@ function snapColors(st, data) {
   const parts = [];
   let total = 0;
   let flushFrom = 0, i = 0;
+  let artUntil = -1, artLine = false; // memo for the current line's art verdict
   const push = (b) => { if (b.length) { parts.push(b); total += b.length; } };
   while (i < len) {
     // Native indexOf beats walking byte by byte; heavy output is mostly plain text.
@@ -296,6 +399,17 @@ function snapColors(st, data) {
     // "38;5;9" is the shortest color spec there is, so anything under six bytes
     // (a reset, bold, an underline) can't need rewriting — skip without decoding.
     if (j - i - 2 < 6) { i = j + 1; continue; }
+    // Is the rest of this line a picture? Decided once per line, then reused by
+    // every color change on it, so gradient art (one SGR per glyph) stays whole.
+    if (settings.artPassthrough !== false) {
+      if (i >= artUntil) {
+        let nl = data.indexOf(0x0a, j);
+        if (nl < 0 || nl > j + 2048) nl = Math.min(len, j + 2048);
+        artUntil = nl;
+        artLine = looksLikeArt(utf8Dec.decode(data.subarray(j + 1, nl)));
+      }
+      if (artLine) { i = j + 1; continue; }
+    }
     const params = latin1Dec.decode(data.subarray(i + 2, j));
     const memo = themePalette().seqs;
     let repl = memo.get(params);
@@ -353,13 +467,13 @@ const setFontVal = document.getElementById('set-font-val');
 const setTint = document.getElementById('set-tint');
 const setTintVal = document.getElementById('set-tint-val');
 const setOpaque = document.getElementById('set-opaque');
-const setThemeColors = document.getElementById('set-theme-colors');
 const setScroll = document.getElementById('set-scroll');
 const setScrollVal = document.getElementById('set-scroll-val');
 const setGlow = document.getElementById('set-glow');
 const setThemes = document.getElementById('set-themes');
 const setCursor = document.getElementById('set-cursor');
 const setBlink = document.getElementById('set-blink');
+const setLigatures = document.getElementById('set-ligatures');
 const setKeys = document.getElementById('set-keys');
 const setEditor = document.getElementById('set-editor');
 const setFontFamily = document.getElementById('set-font-family');
@@ -422,7 +536,7 @@ function copyText(text) {
 function activePane() { return activeTab?.active ?? null; }
 
 // --- Settings -----------------------------------------------------------------
-const DEFAULT_SETTINGS = { fontSize: 13.5, tint: 45, opaque: false, scroll: 8, glow: true, themeColors: true, theme: 'prism', cursor: 'bar', blink: true, editor: 'code', custom: [], keys: {}, font: 'jetbrains', summon: 'ctrl+`', userFonts: [] };
+const DEFAULT_SETTINGS = { fontSize: 13.5, tint: 45, opaque: false, scroll: 8, glow: true, ligatures: false, themeColors: false, artPassthrough: true, colorRules: {}, bgMode: 'tint', bgTint: 28, theme: 'prism', cursor: 'bar', blink: true, editor: 'code', custom: [], keys: {}, font: 'jetbrains', summon: 'ctrl+`', userFonts: [] };
 // Bundled terminal fonts. Users can add their own: an imported font file
 // (stored in app data, loaded as a FontFace) or any installed system font
 // by family name. Those live in settings.userFonts as
@@ -611,6 +725,7 @@ function applySettings(save) {
     p.term.options.cursorBlink = settings.blink;
     p.term.options.scrollSensitivity = settings.scroll;
     p.term.options.fastScrollSensitivity = Math.round(settings.scroll * 2.5);
+    applyLigatures(p);
   });
   if (activeTab) fitTab(activeTab);
   setFont.value = settings.fontSize;
@@ -618,25 +733,50 @@ function applySettings(save) {
   setTint.value = settings.tint;
   setTintVal.textContent = `${settings.tint}%`;
   setOpaque.checked = settings.opaque;
-  setThemeColors.checked = settings.themeColors;
+  const mode = settings.themeColors ? 'theme' : 'default';
+  for (const b of setColorMode.querySelectorAll('.cp-mode')) {
+    b.classList.toggle('sel', b.dataset.mode === mode);
+  }
+  // In Default mode nothing downstream applies, so dim it rather than imply it does.
+  for (const el of document.querySelectorAll('.cp-themed')) {
+    el.classList.toggle('row-off', !settings.themeColors);
+  }
+  updateColorNote();
+  // The drill-down row carries its current value, the way System Settings does.
+  setColorsVal.textContent = settings.themeColors ? 'Match my theme' : 'Default';
+  setArt.checked = settings.artPassthrough !== false;
+  setBgMode.value = settings.bgMode || 'tint';
+  setBgTint.value = settings.bgTint ?? 28;
+  setBgTintVal.textContent = `${settings.bgTint ?? 28}%`;
+  document.getElementById('set-bg-tint-row').classList.toggle('row-off', (settings.bgMode || 'tint') !== 'tint');
+  for (const sel of setRules.querySelectorAll('select')) {
+    const r = ruleFor(sel.dataset.family);
+    sel.value = String(r);
+  }
+  // Every control on this pane changes what the preview shows.
+  renderColorPreview();
   setTint.disabled = settings.opaque; // tint has no effect on a solid window
   setTint.closest('.set-row').classList.toggle('row-off', settings.opaque);
   setScroll.value = settings.scroll;
   setScrollVal.textContent = `${settings.scroll}`;
   // WebKit has no native range progress fill; paint it via a CSS var.
-  for (const r of [setFont, setTint, setScroll]) {
+  for (const r of [setFont, setTint, setScroll, setBgTint]) {
     const pct = ((r.value - r.min) / (r.max - r.min)) * 100;
     r.style.setProperty('--pct', `${pct}%`);
   }
   setGlow.checked = settings.glow;
   setCursor.value = settings.cursor;
   setBlink.checked = settings.blink;
+  setLigatures.checked = !!settings.ligatures;
   setEditor.value = settings.editor;
   setFontFamily.value = settings.font;
   setThemes.querySelectorAll('.theme-card').forEach((c) => {
     c.classList.toggle('sel', c.dataset.theme === settings.theme);
   });
-  if (save) try { localStorage.setItem('prism.settings', JSON.stringify(settings)); } catch {}
+  if (save) {
+    try { localStorage.setItem('prism.settings', JSON.stringify(settings)); } catch {}
+    saveConfigFile();
+  }
 }
 function buildThemeCards() {
   setThemes.replaceChildren();
@@ -795,17 +935,54 @@ function renderHotkeys() {
     setKeys.appendChild(row);
   }
 }
-function loadSettings() {
-  invoke('app_version').then((v) => { setVersion.textContent = 'PRISM ' + v; }).catch(() => {});
-  try { settings = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem('prism.settings') || '{}') }; } catch {}
+// The TOML file at ~/.config/prism/prism.toml is the portable, diffable copy of
+// settings; localStorage stays as a same-machine fallback for when the file is
+// missing or unreadable. Writes are debounced because dragging a slider calls
+// applySettings on every frame.
+let configWriteTimer = null;
+function saveConfigFile() {
+  clearTimeout(configWriteTimer);
+  configWriteTimer = setTimeout(() => {
+    invoke('config_save', { data: JSON.stringify(settings) }).catch(() => {});
+  }, 400);
+}
+function adoptSettings(incoming) {
+  settings = { ...DEFAULT_SETTINGS, ...incoming };
   if (!allThemes()[settings.theme]) settings.theme = 'prism';
   if (!allFonts()[settings.font]) settings.font = 'jetbrains';
+  if (!settings.colorRules || typeof settings.colorRules !== 'object') settings.colorRules = {};
+  paletteCache = null; // rules may have changed under us
+}
+async function loadSettings() {
+  invoke('app_version').then((v) => { setVersion.textContent = 'PRISM ' + v; }).catch(() => {});
+  let stored = {};
+  try { stored = JSON.parse(localStorage.getItem('prism.settings') || '{}'); } catch {}
+  // The file wins when it exists: it is what the user can actually edit.
+  try {
+    const fromFile = await invoke('config_load');
+    if (fromFile) stored = { ...stored, ...JSON.parse(fromFile) };
+  } catch {}
+  adoptSettings(stored);
   buildThemeCards();
+  buildRuleRows();
   renderFontOptions();
   renderUserFonts();
   renderHotkeys();
   applySettings(false);
+  invoke('config_load').then((f) => { if (!f) saveConfigFile(); }).catch(() => {});
 }
+// Someone edited prism.toml in an editor: adopt it without clobbering their file.
+listen('config://changed', (e) => {
+  try {
+    adoptSettings(JSON.parse(e.payload));
+  } catch { return; }
+  renderFontOptions();
+  renderUserFonts();
+  renderHotkeys();
+  buildThemeCards();
+  applySettings(false); // take effect now, don't wait on a font that may not load
+  preloadTermFont().then(() => applySettings(false)); // re-measure if the family changed
+});
 function adjustFont(delta) {
   settings.fontSize = delta === 0
     ? DEFAULT_SETTINGS.fontSize
@@ -863,15 +1040,32 @@ function toggleSettings() {
 settingsBtn.addEventListener('mousedown', (e) => { e.preventDefault(); toggleSettings(); });
 // Modal chrome: sidebar nav switches panes, backdrop click closes, search filters nav.
 const setNavBtns = [...document.querySelectorAll('.set-nav')];
+// Colors is a drill-down of Appearance, System Settings style: the sidebar keeps
+// the parent selected while a subpage is pushed, and a back button returns.
+const SUBPANE_PARENT = { colors: 'appearance' };
 function showSettingsPane(name) {
-  for (const b of setNavBtns) b.classList.toggle('sel', b.dataset.pane === name);
+  const parent = SUBPANE_PARENT[name] || name;
+  for (const b of setNavBtns) b.classList.toggle('sel', b.dataset.pane === parent);
   document.querySelectorAll('.set-section').forEach((s) => {
     s.classList.toggle('hidden', s.dataset.pane !== name);
   });
+  document.querySelector('.set-pane').scrollTop = 0;
+}
+function settingsSubpaneOpen() {
+  return [...document.querySelectorAll('.set-section')]
+    .some((s) => !s.classList.contains('hidden') && SUBPANE_PARENT[s.dataset.pane]);
 }
 for (const b of setNavBtns) {
   b.addEventListener('mousedown', (e) => { e.preventDefault(); showSettingsPane(b.dataset.pane); });
 }
+document.getElementById('set-open-colors').addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  showSettingsPane('colors');
+});
+document.getElementById('set-colors-back').addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  showSettingsPane('appearance');
+});
 settingsEl.addEventListener('mousedown', (e) => { if (e.target === settingsEl) toggleSettings(); });
 document.getElementById('set-close').addEventListener('mousedown', (e) => { e.preventDefault(); toggleSettings(); });
 // Sidebar "Check for updates" mirrors the Updates pane button's label and state.
@@ -897,6 +1091,20 @@ document.getElementById('set-keys-reset').addEventListener('mousedown', (e) => {
   renderHotkeys();
 });
 // Factory reset: wipe session + settings so tab numbering and state start fresh.
+// Config file row (Settings > About).
+const setConfigPath = document.getElementById('set-config-path');
+invoke('config_path').then((p) => { setConfigPath.textContent = tilde(p); }).catch(() => {});
+document.getElementById('set-config-open').addEventListener('mousedown', async (e) => {
+  e.preventDefault();
+  const p = await invoke('config_path');
+  await invoke('config_save', { data: JSON.stringify(settings) }).catch(() => {}); // make sure it exists
+  invoke('open_in_editor', { cwd: HOME, path: p, line: null, editor: settings.editor });
+});
+document.getElementById('set-config-reveal').addEventListener('mousedown', async (e) => {
+  e.preventDefault();
+  await invoke('config_save', { data: JSON.stringify(settings) }).catch(() => {});
+  invoke('reveal_path', { path: await invoke('config_path') });
+});
 const setAppReset = document.getElementById('set-app-reset');
 const APP_RESET_LABEL = setAppReset.textContent;
 let appResetArmed = false;
@@ -929,10 +1137,172 @@ setFont.addEventListener('input', () => { settings.fontSize = parseFloat(setFont
 setTint.addEventListener('input', () => { settings.tint = parseInt(setTint.value, 10); applySettings(true); });
 setScroll.addEventListener('input', () => { settings.scroll = parseInt(setScroll.value, 10); applySettings(true); });
 setOpaque.addEventListener('change', () => { settings.opaque = setOpaque.checked; applySettings(true); });
-setThemeColors.addEventListener('change', () => { settings.themeColors = setThemeColors.checked; applySettings(true); });
+// --- Colors pane: mode, per-family rules, and a live preview -------------------
+const setColorMode = document.getElementById('set-color-mode');
+const setColorsVal = document.getElementById('set-colors-val');
+const setColorNote = document.getElementById('set-color-note');
+const setArt = document.getElementById('set-art');
+const setRules = document.getElementById('set-rules');
+const setBgMode = document.getElementById('set-bg-mode');
+const setBgTint = document.getElementById('set-bg-tint');
+const setBgTintVal = document.getElementById('set-bg-tint-val');
+const setPreview = document.getElementById('set-preview');
+let previewSample = 'agent';
+// Written the way the programs themselves write it: real 24-bit escapes, so the
+// preview runs through exactly the same rewriter as live output.
+const T = (r, g, b) => `\x1b[38;2;${r};${g};${b}m`;
+const BG = (r, g, b) => `\x1b[48;2;${r};${g};${b}m`;
+const R = '\x1b[0m';
+const SAMPLES = {
+  agent: [
+    `${T(215,119,87)}✻${R} ${T(215,119,87)}Welcome to Claude Code${R}`,
+    `${T(136,136,136)}  ~/Documents/prism-tauri-spike${R}`,
+    ``,
+    `${T(150,90,60)}▄▄▄▄${T(190,105,70)}▄▄▄▄${T(215,119,87)}▄▄▄▄${T(238,160,120)}▄▄▄▄${R}`,
+    `${T(190,105,70)}███${T(215,119,87)}██████${T(238,160,120)}███${T(150,90,60)}████${R}`,
+    `${T(136,136,136)}  a logo keeps its own colors${R}`,
+    ``,
+    `${T(107,178,107)}● Read${R} ${T(170,170,170)}src/main.js${R}`,
+    `${T(97,175,239)}● Edit${R} ${T(170,170,170)}src/styles.css${R}`,
+    `${BG(40,90,40)}+  const snap = true;${R}`,
+    `${BG(110,40,40)}-  const snap = false;${R}`,
+    `${T(229,192,123)}⚡ Running tests${R} ${T(136,136,136)}…${R} ${T(107,178,107)}42 passed${R}`,
+    `${T(215,119,87)}✳${R} ${T(136,136,136)}Cooking… (6s · ↑ 5.4k tokens · esc to interrupt)${R}`,
+  ].join('\n'),
+  code: [
+    `${T(150,150,160)}// palette snapping${R}`,
+    `${T(198,120,221)}export function${R} ${T(97,175,239)}snap${R}(${T(229,192,123)}rgb${R}) {`,
+    `  ${T(198,120,221)}const${R} lab = ${T(97,175,239)}toOklab${R}(${T(229,192,123)}rgb${R});`,
+    `  ${T(198,120,221)}if${R} (lab.C < ${T(209,154,102)}0.045${R}) ${T(198,120,221)}return${R} ${T(152,195,121)}'neutral'${R};`,
+    `  ${T(198,120,221)}return${R} nearest(lab); ${T(150,150,160)}// hue first${R}`,
+    `}`,
+    ``,
+    `${T(86,214,138)}✓${R} 12 passed  ${T(224,108,117)}✗${R} 1 failed  ${T(229,192,123)}⚠${R} 3 warnings`,
+    `${T(97,175,239)}INFO${R}  build finished in ${T(229,192,123)}1.24s${R}`,
+    `${T(224,108,117)}ERROR${R} ${T(170,170,170)}src/main.js:42${R} unexpected token`,
+  ].join('\n'),
+};
+function slotHex(idx) {
+  const t = currentTheme();
+  return idx < 0 ? t.colors.foreground : t.colors[ANSI_NAMES[idx]];
+}
+function buildRuleRows() {
+  setRules.replaceChildren();
+  for (const fam of FAMILIES) {
+    const row = document.createElement('div');
+    row.className = 'set-row';
+    const sw = document.createElement('span');
+    sw.className = 'cp-swatch';
+    sw.style.background = fam.swatch;
+    const label = document.createElement('span');
+    label.className = 'set-label cp-fam';
+    label.append(sw, document.createTextNode(fam.label));
+    const sel = document.createElement('select');
+    sel.dataset.family = fam.key;
+    const opts = [['auto', 'Auto (nearest)'], ['original', 'Default (as sent)']];
+    for (const [v, l] of opts) {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = l;
+      sel.appendChild(o);
+    }
+    ANSI_NAMES.forEach((name, i) => {
+      const o = document.createElement('option');
+      o.value = String(i);
+      o.textContent = name.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', () => {
+      const v = sel.value;
+      settings.colorRules = { ...(settings.colorRules || {}) };
+      if (v === 'auto') delete settings.colorRules[fam.key];
+      else settings.colorRules[fam.key] = v === 'original' ? 'original' : parseInt(v, 10);
+      applySettings(true);
+    });
+    row.append(label, sel);
+    setRules.appendChild(row);
+  }
+}
+// Render a sample through the live rewriter, then paint the result with the
+// theme's own colors — so what you see is what the terminal would draw.
+function renderColorPreview() {
+  if (!setPreview) return;
+  const t = currentTheme();
+  const bytes = utf8Enc.encode(SAMPLES[previewSample]);
+  const out = settings.themeColors ? snapColors({ carry: null }, bytes) : bytes;
+  const text = utf8Dec.decode(out);
+  setPreview.replaceChildren();
+  setPreview.style.background = t.bg;
+  setPreview.style.color = t.colors.foreground;
+  let fg = null, bg = null;
+  const flush = (chunk) => {
+    if (!chunk) return;
+    const span = document.createElement('span');
+    span.textContent = chunk;
+    if (fg) span.style.color = fg;
+    if (bg) { span.style.background = bg; }
+    setPreview.appendChild(span);
+  };
+  const re = /\x1b\[([0-9;:]*)m/g;
+  let last = 0, m;
+  while ((m = re.exec(text)) !== null) {
+    flush(text.slice(last, m.index));
+    last = re.lastIndex;
+    const toks = m[1].split(';');
+    for (let i = 0; i < toks.length; i++) {
+      const head = toks[i].split(':')[0];
+      if (toks[i] === '0' || toks[i] === '') { fg = null; bg = null; continue; }
+      if (toks[i] === '39') { fg = null; continue; }
+      if (toks[i] === '49') { bg = null; continue; }
+      if (head !== '38' && head !== '48') continue;
+      const spec = readColorSpec(toks, i);
+      if (!spec) continue;
+      let css = null;
+      if (spec.idx !== undefined && spec.idx < 16) css = slotHex(spec.idx);
+      else if (spec.rgb) css = `rgb(${spec.rgb[0]},${spec.rgb[1]},${spec.rgb[2]})`;
+      if (head === '38') fg = css; else bg = css;
+      i += spec.consumed;
+    }
+  }
+  flush(text.slice(last));
+}
+for (const b of document.querySelectorAll('.cp-tab')) {
+  b.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    previewSample = b.dataset.sample;
+    document.querySelectorAll('.cp-tab').forEach((x) => x.classList.toggle('sel', x === b));
+    renderColorPreview();
+  });
+}
+for (const b of setColorMode.querySelectorAll('.cp-mode')) {
+  b.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    settings.themeColors = b.dataset.mode === 'theme';
+    applySettings(true);
+  });
+}
+// Colors are rewritten as they arrive, so switching modes cannot repaint text
+// that is already on screen — say so rather than let it look broken.
+function updateColorNote() {
+  setColorNote.textContent = settings.themeColors
+    ? 'Applies to new output. Text already on screen keeps the colors it was drawn with.'
+    : 'Programs look exactly as they do in any other terminal. Applies to new output.';
+}
+document.getElementById('set-colors-reset').addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  settings.themeColors = false;
+  settings.artPassthrough = true;
+  settings.colorRules = {};
+  settings.bgMode = 'tint';
+  settings.bgTint = 28;
+  applySettings(true);
+});
+setArt.addEventListener('change', () => { settings.artPassthrough = setArt.checked; applySettings(true); });
+setBgMode.addEventListener('change', () => { settings.bgMode = setBgMode.value; applySettings(true); });
+setBgTint.addEventListener('input', () => { settings.bgTint = parseInt(setBgTint.value, 10); applySettings(true); });
 setGlow.addEventListener('change', () => { settings.glow = setGlow.checked; applySettings(true); });
 setCursor.addEventListener('change', () => { settings.cursor = setCursor.value; applySettings(true); });
 setBlink.addEventListener('change', () => { settings.blink = setBlink.checked; applySettings(true); });
+setLigatures.addEventListener('change', () => { settings.ligatures = setLigatures.checked; applySettings(true); });
 setEditor.addEventListener('change', () => { settings.editor = setEditor.value; applySettings(true); });
 setFontFamily.addEventListener('change', async () => {
   settings.font = setFontFamily.value;
@@ -1114,7 +1484,7 @@ setImportFile.addEventListener('change', () => {
 });
 document.getElementById('set-reset').addEventListener('mousedown', (e) => {
   e.preventDefault();
-  settings = { ...DEFAULT_SETTINGS };
+  settings = { ...DEFAULT_SETTINGS, colorRules: {} }; // own object, never the default's
   renderFontOptions();
   renderUserFonts();
   applySettings(true);
@@ -1413,8 +1783,9 @@ async function createPane(tab, startCwd) {
     id, term, fit, search, el, tab, parent: null, // parent = split node, null at layout root
     exited: false, fgProcess: '', agentActive: false,
     cwd: startCwd || '', branch: '', burstActive: false, workSeen: 0,
-    marks: [], cmdStart: null, lastCmd: null,
+    marks: [], cmdStart: null, lastCmd: null, joinerId: null,
   };
+  applyLigatures(pane);
   hookPromptMarks(pane);
   hookAppProtocols(tab, pane);
   hookPathLinks(pane);
@@ -3018,6 +3389,8 @@ window.addEventListener('keydown', (e) => {
     else if (!findBar.classList.contains('hidden')) { e.preventDefault(); closeFind(); }
     else if (!paletteEl.classList.contains('hidden')) { e.preventDefault(); closePalette(); }
     else if (!missionEl.classList.contains('hidden')) { e.preventDefault(); closeMission(); }
+    // Escape pops a settings subpage first, then closes the modal.
+    else if (!settingsEl.classList.contains('hidden') && settingsSubpaneOpen()) { e.preventDefault(); showSettingsPane('appearance'); }
     else if (!settingsEl.classList.contains('hidden')) { e.preventDefault(); toggleSettings(); }
     return;
   }

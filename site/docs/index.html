@@ -128,6 +128,7 @@
     <a href="#palette">Palette &amp; search</a>
     <a href="#restore">Session restore</a>
     <a href="#themes">Themes &amp; settings</a>
+    <a href="#colors">Agent colors</a>
     <a href="#keys">Keyboard reference</a>
     <div class="grp">Agents</div>
     <a href="#agents">Agent supervision</a>
@@ -144,10 +145,16 @@
       <h1>PRISM Documentation</h1>
       <p class="lede">PRISM is an agent-native terminal for macOS. This page covers everything it can do, because a lot of it is deliberately quiet until you need it.</p>
       <h2>Install</h2>
+      <p>Two ways in. Both install the same signed, notarized universal build.</p>
+      <h3>Homebrew</h3>
+      <pre><span class="c"># one line, no tap needed</span>
+brew install --cask comacoded/prism/prism</pre>
+      <p>Or tap first: <code>brew tap comacoded/prism</code> then <code>brew install --cask prism</code>. The cask is marked <code>auto_updates</code> because PRISM updates itself, so <code>brew upgrade</code> leaves a running install alone; use <code>brew upgrade --cask prism --greedy</code> to force the cask version.</p>
+      <h3>Direct download</h3>
       <ul>
-        <li>Download <code>PRISM.dmg</code> from <a href="/download/PRISM.dmg">Releases</a>, open it, and drag PRISM to Applications.</li>
-        <li>PRISM is currently ad-hoc signed. On first launch, if macOS blocks it, <strong>right-click the app and choose Open</strong> once; after that it opens normally.</li>
-        <li>Requirements: macOS 13+. The DMG is a universal binary (Apple silicon and Intel). Linux is on the <a href="#platforms">roadmap</a>.</li>
+        <li>Download <a href="/download/PRISM.dmg"><code>PRISM.dmg</code></a>, open it, and drag PRISM to Applications.</li>
+        <li>The DMG is signed with an Apple Developer ID and notarized, so it opens with no Gatekeeper warning.</li>
+        <li>Requirements: macOS 13+. Universal binary (Apple silicon and Intel). Linux is on the <a href="#platforms">roadmap</a>.</li>
       </ul>
       <p>On first run PRISM starts your login shell (zsh by default), injects its shell integration automatically (<a href="#shell">details</a>), and restores any previous session.</p>
       <h3>Updates</h3>
@@ -169,10 +176,18 @@
       <div class="latest" id="latest">Latest release: <strong id="latest-ver">…</strong></div>
       <p>PRISM updates itself. Install new versions from <strong>Settings → Updates</strong>. Recent releases:</p>
 
+      <h3>0.5.0 <span class="cl-tag">configurable</span></h3>
+      <ul>
+        <li><strong>Homebrew</strong>: <code>brew install --cask comacoded/prism/prism</code>. The signed, notarized DMG is still a direct download; brew is a second front door to the same build.</li>
+        <li><strong>Configuration file</strong>: every setting is mirrored to <code>~/.config/prism/prism.toml</code>, a commented TOML file you can edit, diff, and sync. PRISM watches it and adopts outside edits live. Path plus Open and Reveal buttons in Settings → About.</li>
+        <li><strong>Ligatures</strong> (Settings → Terminal): <code>=&gt;</code>, <code>!==</code>, <code>-&gt;</code> and friends render as ligature glyphs in fonts that have them, with the GPU renderer still on. Previously documented as impossible; it isn't.</li>
+        <li><strong>Agent colors</strong> gained a <strong>Default</strong> mode that leaves every program's colors exactly as sent, per-family rules for the nine hue families, background handling, a "keep logos and art" switch so brand marks survive theming, and a live preview. It now lives under Settings → Appearance → Agent colors, and ships in Default.</li>
+      </ul>
+
       <h3>0.4.0 <span class="cl-tag">color + focus</span></h3>
       <ul>
         <li><strong>Themes drive the whole window</strong>: picking a theme now sets the window background, not just the terminal palette.</li>
-        <li><strong>Theme agent colors</strong>: coding agents paint themselves in hardcoded 24-bit color, so no theme ever touched them. PRISM now remaps that output onto your palette, matching by hue so an agent's orange lands on your theme's orange. Foregrounds re-render when you switch themes; diff highlights become a tint of your background instead of a slab of color. Toggle in Settings → Appearance.</li>
+        <li><strong>Theme agent colors</strong>: coding agents paint themselves in hardcoded 24-bit color, so no theme ever touched them. PRISM now remaps that output onto your palette, matching by hue so an agent's orange lands on your theme's orange. Foregrounds re-render when you switch themes; diff highlights become a tint of your background instead of a slab of color. See <a href="#colors">Agent colors</a>.</li>
         <li><strong>Notifications</strong> now come from PRISM itself, with the app icon and name.</li>
         <li><strong>The artifacts rail has been removed.</strong> Watching the working directory and listing an agent's files duplicated what your editor already does well. Agent supervision stays where it belongs: the work glow, tab states, needs-you notifications, and mission control.</li>
       </ul>
@@ -292,6 +307,27 @@
       <p>Everything persists across launches. Reset to defaults with one button.</p>
     </section>
 
+    <section id="colors">
+      <h2>Agent colors</h2>
+      <p>Coding agents paint themselves in fixed 24-bit color, which bypasses the sixteen-color palette entirely. That is why switching themes never used to change a word of Claude Code's output. <strong>Settings → Appearance → Agent colors</strong> rewrites those colors as they arrive.</p>
+      <h3>Default or Match my theme</h3>
+      <ul>
+        <li><strong>Default</strong> leaves every program's colors exactly as sent — how they look in any other terminal, and the way back if theming is not for you. This is how PRISM ships.</li>
+        <li><strong>Match my theme</strong> turns on the remapping. Each incoming color is matched to the nearest entry in your palette, compared in Oklab with hue weighted above chroma and brightness, so an agent's orange lands on your theme's orange rather than whatever is numerically nearest.</li>
+        <li>Colors are rewritten as output arrives, so switching modes applies to <em>new</em> output. Text already on screen keeps the colors it was drawn with. <strong>Reset colors to default</strong> returns the whole pane to untouched in one click.</li>
+        <li>Foregrounds become palette <em>indices</em>, so text already on screen recolors when you switch themes instead of freezing at whatever it was written as.</li>
+      </ul>
+      <h3>Keep logos and art</h3>
+      <p>A line made mostly of block, box-drawing, braille or emoji glyphs is a picture, not prose, so it keeps the colors the program chose and brand marks survive theming. A line with a single bullet in it is still text, and is still themed.</p>
+      <h3>Per-color rules</h3>
+      <ul>
+        <li>Every color an agent emits falls into one of nine families: red, orange, yellow, green, cyan, blue, purple, magenta, or greys.</li>
+        <li>Each family can stay on <strong>Auto</strong>, be pinned to any of the sixteen palette entries, or be set to <strong>Default (as sent)</strong> to keep a brand color exactly as the program wrote it.</li>
+        <li>Backgrounds have their own control: a <strong>tint</strong> of your background at an adjustable strength (so diff highlights stay readable), <strong>full strength</strong>, or <strong>default (as sent)</strong>.</li>
+        <li>A preview pinned to the bottom of the pane renders either a Claude Code session or a block of code through the real pipeline, so every change is visible as you make it.</li>
+      </ul>
+    </section>
+
     <section id="keys">
       <h2>Keyboard reference</h2>
       <table>
@@ -400,7 +436,7 @@
         <tr><td>OSC 133 semantic prompts</td><td>Supported + auto-injected</td></tr>
         <tr><td>OSC 9 / 777 notifications, OSC 9;4 progress</td><td>Supported</td></tr>
         <tr><td>Kitty graphics / keyboard protocols</td><td>Not supported (xterm.js ceiling)</td></tr>
-        <tr><td>Ligatures</td><td>Not supported with the GPU renderer</td></tr>
+        <tr><td>Ligatures</td><td>Supported (optional, Settings → Terminal)</td></tr>
       </table>
     </section>
 
@@ -450,7 +486,7 @@
     if (el && m.version) el.textContent = 'v' + m.version;
   }).catch(() => {
     const el = document.getElementById('latest-ver');
-    if (el) el.textContent = 'v0.4.0';
+    if (el) el.textContent = 'v0.5.0';
   });
 </script>
 </body>

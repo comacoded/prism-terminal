@@ -68,10 +68,33 @@ json.dump({
 }, open('site/updates/latest.json', 'w'), indent=2)
 PY
 
-echo "── 4/5 deploy feed + site"
+echo "── 4/6 deploy feed + site"
 (cd site && railway up --detach --service prism-landing)
 
-echo "── 5/5 install locally"
+# Homebrew cask: same DMG, just a checksum and a version bump in the tap repo.
+# The DMG stays the primary download; brew is a second front door to it.
+TAP="$HOME/Documents/homebrew-prism"
+echo "── 5/6 update the Homebrew cask"
+if [ -d "$TAP/.git" ]; then
+  SHA=$(shasum -a 256 "$DMG" | cut -d' ' -f1)
+  python3 - "$TAP/Casks/prism.rb" "$VER" "$SHA" <<'PY'
+import re, sys
+path, ver, sha = sys.argv[1], sys.argv[2], sys.argv[3]
+s = open(path).read()
+s = re.sub(r'^  version ".*"$', f'  version "{ver}"', s, flags=re.M)
+s = re.sub(r'^  sha256 .*$', f'  sha256 "{sha}"', s, flags=re.M)
+open(path, 'w').write(s)
+PY
+  (cd "$TAP" && git add -A \
+    && git commit -q -m "prism $VER" \
+    && git push -q origin HEAD 2>/dev/null) \
+    && echo "   cask updated to $VER ($SHA)" \
+    || echo "   cask unchanged or push failed (check $TAP)"
+else
+  echo "   skipped: no tap checkout at $TAP"
+fi
+
+echo "── 6/6 install locally"
 osascript -e 'tell application "PRISM" to quit' >/dev/null 2>&1 || true
 sleep 1
 rm -rf /Applications/PRISM.app
@@ -82,5 +105,6 @@ echo
 echo "Released PRISM $VER"
 echo "  DMG:  $BUNDLE/dmg/PRISM_${VER}_universal.dmg"
 echo "  Feed: https://prism-landing-production.up.railway.app/updates/latest.json"
+echo "  Brew: brew install --cask comacoded/prism/prism"
 echo "  Running apps offer the update within 4 hours; every launch checks immediately."
 echo "  Don't forget: git add -A && git commit && git push"

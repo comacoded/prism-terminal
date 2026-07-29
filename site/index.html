@@ -119,6 +119,19 @@
   .btn-ghost { display: flex; align-items: center; gap: 9px; padding: 13px 26px; border-radius: 12px; border: 1px solid var(--stroke); background: rgba(255,255,255,0.55); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); font-size: 15px; line-height: 20px; transition: background 140ms, transform 160ms; }
   .btn-ghost:hover { background: rgba(255,255,255,0.9); transform: translateY(-1px); }
   .req { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
+  .brew {
+    display: inline-flex; align-items: center; gap: 9px;
+    margin: 16px 0 10px; padding: 11px 14px;
+    border: 1px solid var(--stroke); border-radius: 10px;
+    background: rgba(255,255,255,0.55);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    font-family: var(--mono); font-size: 13px; color: var(--fg);
+    cursor: pointer; transition: background 140ms;
+  }
+  .brew:hover { background: rgba(255,255,255,0.8); }
+  .brew-p { color: var(--faint); }
+  .brew-copy { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+  .brew.copied .brew-copy { color: #1f9d55; }
 
   /* ------ live demo (hero, right column) ------ */
   .demo-stage { position: relative; }
@@ -285,7 +298,11 @@
         <a class="btn-glow" href="/download/PRISM.dmg"><span>Download for macOS</span></a>
         <a class="btn-ghost" href="https://github.com/comacoded/prism-terminal">View on GitHub</a>
       </div>
-      <p class="req">macOS 13+ · Universal (Apple silicon + Intel) · free and open source</p>
+      <button class="brew" id="brew-hero" title="Click to copy">
+        <span class="brew-p">$</span> brew install --cask comacoded/prism/prism
+        <span class="brew-copy">copy</span>
+      </button>
+      <p class="req">macOS 13+ · Universal (Apple silicon + Intel) · signed &amp; notarized · free and open source</p>
     </div>
 
     <!-- Live product demo: a scripted loop of the real interaction model. -->
@@ -429,7 +446,11 @@
       <a class="btn-glow" href="/download/PRISM.dmg"><span>Download PRISM for macOS</span></a>
       <a class="btn-ghost" href="docs/">Read the docs</a>
     </div>
-    <p class="req">PRISM 0.2.6 · universal · macOS 13+ · Universal binary</p>
+    <button class="brew" id="brew-foot" title="Click to copy">
+      <span class="brew-p">$</span> brew install --cask comacoded/prism/prism
+      <span class="brew-copy">copy</span>
+    </button>
+    <p class="req">Signed &amp; notarized · universal binary · macOS 13+</p>
   </div>
 </section>
 
@@ -492,6 +513,19 @@
   const dproc = document.getElementById('d-proc');
   const dup = document.getElementById('d-up');
   const steps = [1, 2, 3, 4].map((n) => document.getElementById('s' + n));
+  for (const b of document.querySelectorAll('.brew')) {
+    b.addEventListener('click', () => {
+      navigator.clipboard.writeText('brew install --cask comacoded/prism/prism').then(() => {
+        b.classList.add('copied');
+        b.querySelector('.brew-copy').textContent = 'copied';
+        setTimeout(() => {
+          b.classList.remove('copied');
+          b.querySelector('.brew-copy').textContent = 'copy';
+        }, 1600);
+      }).catch(() => {});
+    });
+  }
+
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let demoTimers = [];

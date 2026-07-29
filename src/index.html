@@ -92,19 +92,79 @@
                 <label class="switch"><input type="checkbox" id="set-opaque" /><span class="sw-track"></span><span class="sw-knob"></span></label>
               </div>
               <div class="set-row">
-                <span class="set-label">Theme agent colors
-                  <span class="set-hint">Recolor 24-bit output (Claude Code, Codex) to the palette</span>
-                </span>
-                <label class="switch"><input type="checkbox" id="set-theme-colors" /><span class="sw-track"></span><span class="sw-knob"></span></label>
-              </div>
-              <div class="set-row">
                 <span class="set-label">Work glow</span>
                 <label class="switch"><input type="checkbox" id="set-glow" /><span class="sw-track"></span><span class="sw-knob"></span></label>
               </div>
             </div>
+            <div class="set-group">
+              <button class="set-row set-drill" id="set-open-colors">
+                <span class="set-label">Agent colors
+                  <span class="set-hint">How programs that pick their own colors are handled</span>
+                </span>
+                <span class="set-drill-val" id="set-colors-val"></span>
+                <svg class="set-chev" viewBox="0 0 256 256"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
+              </button>
+            </div>
             <button id="set-import">Import theme (.itermcolors / Ghostty)…</button>
             <input type="file" id="set-import-file" style="display:none" />
             <button id="set-reset">Reset to defaults</button>
+          </section>
+          <section class="set-section hidden" data-pane="colors">
+            <button class="set-back" id="set-colors-back">
+              <svg viewBox="0 0 256 256"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>
+              Appearance
+            </button>
+            <div class="set-title">Agent colors</div>
+            <div class="set-sub">Coding agents paint themselves in fixed 24-bit color, which ignores your palette. PRISM can remap it, or leave every program exactly as it looks everywhere else.</div>
+            <div class="cp-modes" id="set-color-mode">
+              <button class="cp-mode" data-mode="default">
+                <span class="cp-mode-name">Default</span>
+                <span class="cp-mode-sub">Every color exactly as the program sends it</span>
+              </button>
+              <button class="cp-mode" data-mode="theme">
+                <span class="cp-mode-name">Match my theme</span>
+                <span class="cp-mode-sub">Remap onto the active palette</span>
+              </button>
+            </div>
+            <div class="cp-note" id="set-color-note"></div>
+            <div class="set-group cp-themed">
+              <div class="set-row">
+                <span class="set-label">Keep logos and art
+                  <span class="set-hint">Leave lines made of block or emoji glyphs untouched</span>
+                </span>
+                <label class="switch"><input type="checkbox" id="set-art" /><span class="sw-track"></span><span class="sw-knob"></span></label>
+              </div>
+            </div>
+
+            <div class="set-head cp-themed">Each color an agent uses</div>
+            <div class="cp-grid cp-themed" id="set-rules"></div>
+
+            <div class="set-head cp-themed">Backgrounds</div>
+            <div class="set-group cp-themed">
+              <div class="set-row">
+                <span class="set-label">Highlight style</span>
+                <select id="set-bg-mode">
+                  <option value="tint">Tint of your background</option>
+                  <option value="full">Full strength</option>
+                  <option value="original">Default (as sent)</option>
+                </select>
+              </div>
+              <div class="set-row" id="set-bg-tint-row">
+                <span class="set-label">Tint strength</span>
+                <input type="range" id="set-bg-tint" min="5" max="60" step="1" />
+                <span class="set-val" id="set-bg-tint-val"></span>
+              </div>
+            </div>
+
+            <div class="cp-dock">
+              <div class="cp-tabs">
+                <span class="cp-dock-label">Preview</span>
+                <button class="cp-tab sel" data-sample="agent">Claude Code</button>
+                <button class="cp-tab" data-sample="code">Code</button>
+              </div>
+              <pre class="cp-preview" id="set-preview"></pre>
+              <button id="set-colors-reset" class="cp-reset">Reset colors to default</button>
+            </div>
           </section>
           <section class="set-section hidden" data-pane="terminal">
             <div class="set-title">Terminal</div>
@@ -138,6 +198,12 @@
                 <span class="set-label">Scroll speed</span>
                 <input type="range" id="set-scroll" min="1" max="20" step="1" />
                 <span class="set-val" id="set-scroll-val"></span>
+              </div>
+              <div class="set-row">
+                <span class="set-label">Ligatures
+                  <span class="set-hint">Join sequences like =&gt; and !== where the font supports it</span>
+                </span>
+                <label class="switch"><input type="checkbox" id="set-ligatures" /><span class="sw-track"></span><span class="sw-knob"></span></label>
               </div>
               <div class="set-row">
                 <span class="set-label">Cursor</span>
@@ -193,6 +259,15 @@
               <div class="set-row"><span class="set-label">Shell integration</span><span class="set-val set-val-wide">zsh + bash, automatic</span></div>
               <div class="set-row"><span class="set-label">Nested shells</span><span class="set-val set-val-wide">source "$PRISM_INTEGRATION_DIR/prism.zsh"</span></div>
               <div class="set-row"><span class="set-label">Made by</span><span class="set-val set-val-wide">Nick Coma</span></div>
+            </div>
+            <div class="set-head">Configuration file</div>
+            <div class="set-sub">Every setting also lives in a TOML file you can edit, diff, and sync. Saved changes load immediately.</div>
+            <div class="set-group">
+              <div class="set-row">
+                <span class="set-label"><span class="set-path" id="set-config-path"></span></span>
+                <button id="set-config-open" class="set-mini-btn">Open</button>
+                <button id="set-config-reveal" class="set-mini-btn">Reveal</button>
+              </div>
             </div>
             <button id="set-app-reset">Reset PRISM (erase session + settings)…</button>
           </section>
