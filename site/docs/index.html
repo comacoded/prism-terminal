@@ -145,12 +145,6 @@
       <h1>PRISM Documentation</h1>
       <p class="lede">PRISM is an agent-native terminal for macOS. This page covers everything it can do, because a lot of it is deliberately quiet until you need it.</p>
       <h2>Install</h2>
-      <p>Two ways in. Both install the same signed, notarized universal build.</p>
-      <h3>Homebrew</h3>
-      <pre><span class="c"># one line, no tap needed</span>
-brew install --cask comacoded/prism/prism</pre>
-      <p>Or tap first: <code>brew tap comacoded/prism</code> then <code>brew install --cask prism</code>. The cask is marked <code>auto_updates</code> because PRISM updates itself, so <code>brew upgrade</code> leaves a running install alone; use <code>brew upgrade --cask prism --greedy</code> to force the cask version.</p>
-      <h3>Direct download</h3>
       <ul>
         <li>Download <a href="/download/PRISM.dmg"><code>PRISM.dmg</code></a>, open it, and drag PRISM to Applications.</li>
         <li>The DMG is signed with an Apple Developer ID and notarized, so it opens with no Gatekeeper warning.</li>
@@ -178,7 +172,6 @@ brew install --cask comacoded/prism/prism</pre>
 
       <h3>0.5.0 <span class="cl-tag">configurable</span></h3>
       <ul>
-        <li><strong>Homebrew</strong>: <code>brew install --cask comacoded/prism/prism</code>. The signed, notarized DMG is still a direct download; brew is a second front door to the same build.</li>
         <li><strong>Configuration file</strong>: every setting is mirrored to <code>~/.config/prism/prism.toml</code>, a commented TOML file you can edit, diff, and sync. PRISM watches it and adopts outside edits live. Path plus Open and Reveal buttons in Settings → About.</li>
         <li><strong>Ligatures</strong> (Settings → Terminal): <code>=&gt;</code>, <code>!==</code>, <code>-&gt;</code> and friends render as ligature glyphs in fonts that have them, with the GPU renderer still on. Previously documented as impossible; it isn't.</li>
         <li><strong>Agent colors</strong> gained a <strong>Default</strong> mode that leaves every program's colors exactly as sent, per-family rules for the nine hue families, background handling, a "keep logos and art" switch so brand marks survive theming, and a live preview. It now lives under Settings → Appearance → Agent colors, and ships in Default.</li>

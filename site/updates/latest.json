@@ -1,6 +1,6 @@
 {
   "version": "0.5.0",
-  "notes": "PRISM 0.5: a config file at ~/.config/prism/prism.toml that PRISM watches and reloads live, ligatures with the GPU renderer still on, Homebrew installation, and Agent colors gains a Default mode plus per-color rules, background handling and a live preview.",
+  "notes": "PRISM 0.5: a config file at ~/.config/prism/prism.toml that PRISM watches and reloads live, ligatures with the GPU renderer still on, and Agent colors gains a Default mode plus per-color rules, background handling and a live preview.",
   "pub_date": "2026-07-29T19:15:15Z",
   "platforms": {
     "darwin-aarch64": {
