@@ -893,6 +893,8 @@ mod config_tests {
             "fontSize": 13.5, "tint": 45, "opaque": false, "ligatures": true,
             "theme": "gruvbox", "colorRules": {"orange": "original", "red": 4},
             "keys": {"find": {"mods": "meta", "key": "f"}},
+            "macKeys": true,
+            "sendKeys": {"cmd+left": "", "ctrl+alt+y": "\u0001", "opt+right": "\u001bf"},
             "custom": [{"key": "mine", "label": "Mine", "bg": "#101010"}],
             "userFonts": [], "scroll": 8, "summon": "ctrl+`"
         }"##;
@@ -909,6 +911,10 @@ mod config_tests {
         assert_eq!(json_back["keys"]["find"]["key"], "f");
         assert_eq!(json_back["custom"][0]["label"], "Mine");
         assert_eq!(json_back["summon"], "ctrl+`");
+        assert_eq!(json_back["macKeys"], true);
+        assert_eq!(json_back["sendKeys"]["cmd+left"], "");
+        assert_eq!(json_back["sendKeys"]["ctrl+alt+y"], "\u{1}");
+        assert_eq!(json_back["sendKeys"]["opt+right"], "\u{1b}f");
         assert!(json_back["userFonts"].as_array().unwrap().is_empty());
     }
 }

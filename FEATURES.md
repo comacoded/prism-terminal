@@ -153,6 +153,16 @@ rendering, portable-pty, zsh shell integration injected via ZDOTDIR.
   sequences itself through xterm's character-joiner API, which the WebGL
   renderer honours: GPU rendering and ligatures together, no DOM-renderer
   fallback and no loss of cell alignment.
+- **macOS text editing** (Settings > Terminal, on by default). The editing
+  gestures Mac fingers expect work at the shell prompt: Cmd+Delete deletes
+  the line, Cmd+Left/Right jump to its start and end, Option+Left/Right move
+  by word. PRISM translates them to the readline sequences every shell
+  already binds (^U, ^A, ^E, Esc b, Esc f), the same trick as iTerm2's
+  "natural text editing" preset, so they work in zsh, bash, and TUIs alike.
+  A `[sendKeys]` table in the config file customizes the set: any
+  `"combo" = "bytes"` entry adds a binding (`"cmd+u" = "\u0015"`), and an
+  empty string disables a built-in (`"cmd+left" = ""`). Combos accept
+  cmd/opt/ctrl/shift plus a key name; sequences use TOML `\uXXXX` escapes.
 - **Configuration file.** Every setting is mirrored to
   `~/.config/prism/prism.toml`, a commented TOML file you can edit, diff, and
   sync across machines. The app writes it on change (debounced) and watches it
@@ -240,6 +250,9 @@ unfocused, so foreground work never spams you.
 | Cmd+Shift+Enter | Zoom focused pane |
 | Cmd+Shift+B | Broadcast input to panes |
 | Cmd+click path | Open file in editor |
+| Cmd+Delete | Delete the current line (^U) |
+| Cmd+Left / Cmd+Right | Start / end of line (^A / ^E) |
+| Option+Left / Option+Right | Back / forward one word (Esc b / Esc f) |
 | Cmd+, | Settings |
 | Cmd+plus / Cmd+minus | Text size up / down |
 | Cmd+0 | Reset text size |

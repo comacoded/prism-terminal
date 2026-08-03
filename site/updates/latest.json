@@ -1,15 +1,15 @@
 {
-  "version": "0.5.0",
-  "notes": "PRISM 0.5: a config file at ~/.config/prism/prism.toml that PRISM watches and reloads live, ligatures with the GPU renderer still on, and Agent colors gains a Default mode plus per-color rules, background handling and a live preview.",
-  "pub_date": "2026-07-29T19:15:15Z",
+  "version": "0.5.1",
+  "notes": "macOS text editing keys: Cmd+Delete deletes the line, Cmd+Left/Right jump to line start and end, Option+Left/Right move by word. Customizable via [sendKeys] in prism.toml.",
+  "pub_date": "2026-08-03T17:37:28Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNStMZUNQLzRmc3Vkenc3cm40T0xhOUFnclVDY0J4RjBaNVlZaldic1pSeHMxM0ZNYXRUeUhjVkpEanBKWldPQlJURDBiNlB0VDF6OHF0WEk2bGxxdWd3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1MzUyNDgzCWZpbGU6UFJJU00uYXBwLnRhci5negp3cFozMjRFdXVGMnJNaWU0WGtFNEZyVDhPTG9WR1BDbVNCNE9KVGhKMkh5c0t5a1RQMnh0S21rQzNJbmhaRFJQVjl0ME1jTmZVZEFpa1JQRlk1ajNBZz09Cg==",
-      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.5.0.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNXk2c1g3UjhnYVp3UEtDN3FWMU9sZ3BXRS9QOEVHOFVtOHV3NER5ZWlqZ3ZTb2xwMFN6akdTS2dYMWw1U3lDWXFZdjl4STVUNUlQVmJkRXVDM3hmWkE0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1Nzc4NjIyCWZpbGU6UFJJU00uYXBwLnRhci5negp5cTBWcGlDZDRRVHJMQWxtSGlpUXlJYVlWRzMvVUprc0tQWC9GTlpMKzJBTkFpaER3YzJLK1BSa3ZBLzBDK3NkajNjb0xKcysvSWlFZVgvdVZ5UWZDdz09Cg==",
+      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.5.1.app.tar.gz"
     },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNStMZUNQLzRmc3Vkenc3cm40T0xhOUFnclVDY0J4RjBaNVlZaldic1pSeHMxM0ZNYXRUeUhjVkpEanBKWldPQlJURDBiNlB0VDF6OHF0WEk2bGxxdWd3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1MzUyNDgzCWZpbGU6UFJJU00uYXBwLnRhci5negp3cFozMjRFdXVGMnJNaWU0WGtFNEZyVDhPTG9WR1BDbVNCNE9KVGhKMkh5c0t5a1RQMnh0S21rQzNJbmhaRFJQVjl0ME1jTmZVZEFpa1JQRlk1ajNBZz09Cg==",
-      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.5.0.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVScHYrakMvNUhMNXk2c1g3UjhnYVp3UEtDN3FWMU9sZ3BXRS9QOEVHOFVtOHV3NER5ZWlqZ3ZTb2xwMFN6akdTS2dYMWw1U3lDWXFZdjl4STVUNUlQVmJkRXVDM3hmWkE0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1Nzc4NjIyCWZpbGU6UFJJU00uYXBwLnRhci5negp5cTBWcGlDZDRRVHJMQWxtSGlpUXlJYVlWRzMvVUprc0tQWC9GTlpMKzJBTkFpaER3YzJLK1BSa3ZBLzBDK3NkajNjb0xKcysvSWlFZVgvdVZ5UWZDdz09Cg==",
+      "url": "https://prism-landing-production.up.railway.app/updates/PRISM_0.5.1.app.tar.gz"
     }
   }
 }

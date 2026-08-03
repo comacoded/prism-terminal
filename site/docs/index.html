@@ -170,6 +170,12 @@
       <div class="latest" id="latest">Latest release: <strong id="latest-ver">…</strong></div>
       <p>PRISM updates itself. Install new versions from <strong>Settings → Updates</strong>. Recent releases:</p>
 
+      <h3>0.5.1 <span class="cl-tag">mac fingers</span></h3>
+      <ul>
+        <li><strong>macOS text editing</strong> at the prompt: <kbd>⌘⌫</kbd> deletes the line, <kbd>⌘←</kbd>/<kbd>⌘→</kbd> jump to its start and end, <kbd>⌥←</kbd>/<kbd>⌥→</kbd> move by word. PRISM translates them to the readline sequences every shell already binds, so they work in zsh, bash, and full-screen tools alike. On by default; toggle in Settings → Terminal.</li>
+        <li><strong>Custom key sequences</strong>: a <code>[sendKeys]</code> table in <code>prism.toml</code> maps any combo to the bytes it should send — add your own bindings or disable a built-in with an empty string.</li>
+      </ul>
+
       <h3>0.5.0 <span class="cl-tag">configurable</span></h3>
       <ul>
         <li><strong>Configuration file</strong>: every setting is mirrored to <code>~/.config/prism/prism.toml</code>, a commented TOML file you can edit, diff, and sync. PRISM watches it and adopts outside edits live. Path plus Open and Reveal buttons in Settings → About.</li>
@@ -479,7 +485,7 @@
     if (el && m.version) el.textContent = 'v' + m.version;
   }).catch(() => {
     const el = document.getElementById('latest-ver');
-    if (el) el.textContent = 'v0.5.0';
+    if (el) el.textContent = 'v0.5.1';
   });
 </script>
 </body>

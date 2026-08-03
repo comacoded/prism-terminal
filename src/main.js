@@ -474,6 +474,7 @@ const setThemes = document.getElementById('set-themes');
 const setCursor = document.getElementById('set-cursor');
 const setBlink = document.getElementById('set-blink');
 const setLigatures = document.getElementById('set-ligatures');
+const setMacKeys = document.getElementById('set-mac-keys');
 const setKeys = document.getElementById('set-keys');
 const setEditor = document.getElementById('set-editor');
 const setFontFamily = document.getElementById('set-font-family');
@@ -536,7 +537,7 @@ function copyText(text) {
 function activePane() { return activeTab?.active ?? null; }
 
 // --- Settings -----------------------------------------------------------------
-const DEFAULT_SETTINGS = { fontSize: 13.5, tint: 45, opaque: false, scroll: 8, glow: true, ligatures: false, themeColors: false, artPassthrough: true, colorRules: {}, bgMode: 'tint', bgTint: 28, theme: 'prism', cursor: 'bar', blink: true, editor: 'code', custom: [], keys: {}, font: 'jetbrains', summon: 'ctrl+`', userFonts: [] };
+const DEFAULT_SETTINGS = { fontSize: 13.5, tint: 45, opaque: false, scroll: 8, glow: true, ligatures: false, themeColors: false, artPassthrough: true, colorRules: {}, bgMode: 'tint', bgTint: 28, theme: 'prism', cursor: 'bar', blink: true, editor: 'code', custom: [], keys: {}, sendKeys: {}, macKeys: true, font: 'jetbrains', summon: 'ctrl+`', userFonts: [] };
 // Bundled terminal fonts. Users can add their own: an imported font file
 // (stored in app data, loaded as a FontFace) or any installed system font
 // by family name. Those live in settings.userFonts as
@@ -675,6 +676,46 @@ function fmtCombo(hk) {
   return [...mods, key].join(' ');
 }
 function kbdLabel(id) { return fmtCombo(hotkeyOf(id)); }
+// macOS text-editing gestures (iTerm2's "natural text editing" set). The shell
+// only speaks readline, so the ⌘/⌥ editing keys become the control sequences
+// readline already binds. xterm.js swallows ⌘+arrows outright and sends
+// CSI 1;3 for ⌥+arrows, which shells leave unbound; both need translating.
+const MAC_EDIT_KEYS = {
+  'meta+arrowleft': '\x01',  // start of line (^A)
+  'meta+arrowright': '\x05', // end of line (^E)
+  'meta+backspace': '\x15',  // delete to start of line (^U)
+  'alt+arrowleft': '\x1bb',  // back one word (Esc b)
+  'alt+arrowright': '\x1bf', // forward one word (Esc f)
+};
+// prism.toml [sendKeys] holds the user's own combo → bytes entries, e.g.
+// "cmd+right" = "". They extend the built-ins; an empty string disables
+// one. Combos accept cmd/opt/option aliases and bare arrow/delete names.
+const COMBO_ALIAS = {
+  cmd: 'meta', command: 'meta', opt: 'alt', option: 'alt', control: 'ctrl',
+  left: 'arrowleft', right: 'arrowright', up: 'arrowup', down: 'arrowdown',
+  delete: 'backspace', del: 'backspace', esc: 'escape', return: 'enter',
+};
+function normalizeCombo(str) {
+  const parts = String(str).toLowerCase().split('+').map((p) => COMBO_ALIAS[p.trim()] || p.trim());
+  const key = parts.pop();
+  if (!key || !parts.length) return null;
+  const mods = ['meta', 'ctrl', 'alt', 'shift'].filter((m) => parts.includes(m));
+  if (mods.length !== parts.length) return null; // unknown modifier
+  return `${mods.join('+')}+${key}`;
+}
+let sendKeyCache = null;
+function sendKeyMap() {
+  if (!sendKeyCache) {
+    const map = settings.macKeys === false ? {} : { ...MAC_EDIT_KEYS };
+    for (const [combo, seq] of Object.entries(settings.sendKeys || {})) {
+      const n = normalizeCombo(combo);
+      if (!n || typeof seq !== 'string') continue;
+      if (seq === '') delete map[n]; else map[n] = seq;
+    }
+    sendKeyCache = map;
+  }
+  return sendKeyCache;
+}
 // OS-level summon shortcut: tauri-plugin-global-shortcut string format.
 function globalKeyFromEvent(e) {
   const c = e.code;
@@ -768,6 +809,7 @@ function applySettings(save) {
   setCursor.value = settings.cursor;
   setBlink.checked = settings.blink;
   setLigatures.checked = !!settings.ligatures;
+  setMacKeys.checked = settings.macKeys !== false;
   setEditor.value = settings.editor;
   setFontFamily.value = settings.font;
   setThemes.querySelectorAll('.theme-card').forEach((c) => {
@@ -951,7 +993,9 @@ function adoptSettings(incoming) {
   if (!allThemes()[settings.theme]) settings.theme = 'prism';
   if (!allFonts()[settings.font]) settings.font = 'jetbrains';
   if (!settings.colorRules || typeof settings.colorRules !== 'object') settings.colorRules = {};
+  if (!settings.sendKeys || typeof settings.sendKeys !== 'object') settings.sendKeys = {};
   paletteCache = null; // rules may have changed under us
+  sendKeyCache = null;
 }
 async function loadSettings() {
   invoke('app_version').then((v) => { setVersion.textContent = 'PRISM ' + v; }).catch(() => {});
@@ -1303,6 +1347,7 @@ setGlow.addEventListener('change', () => { settings.glow = setGlow.checked; appl
 setCursor.addEventListener('change', () => { settings.cursor = setCursor.value; applySettings(true); });
 setBlink.addEventListener('change', () => { settings.blink = setBlink.checked; applySettings(true); });
 setLigatures.addEventListener('change', () => { settings.ligatures = setLigatures.checked; applySettings(true); });
+setMacKeys.addEventListener('change', () => { settings.macKeys = setMacKeys.checked; sendKeyCache = null; applySettings(true); });
 setEditor.addEventListener('change', () => { settings.editor = setEditor.value; applySettings(true); });
 setFontFamily.addEventListener('change', async () => {
   settings.font = setFontFamily.value;
@@ -1803,6 +1848,22 @@ async function createPane(tab, startCwd) {
         if (p2 !== pane && !p2.exited) invoke('pty_write', { id: p2.id, data: d });
       }
     }
+  });
+  // ⌘/⌥ editing keys become readline sequences; term.input routes them
+  // through onData so broadcast panes receive them too.
+  term.attachCustomKeyEventHandler((ev) => {
+    if (ev.type !== 'keydown') return true;
+    const combo = comboOf(ev);
+    if (!combo.mods) return true;
+    const seq = sendKeyMap()[`${combo.mods}+${combo.key}`];
+    if (seq === undefined) return true;
+    for (const aid of Object.keys(DEFAULT_KEYMAP)) {
+      const hk = hotkeyOf(aid);
+      if (hk.mods === combo.mods && hk.key === combo.key) return true; // app shortcuts win
+    }
+    ev.preventDefault();
+    term.input(seq);
+    return false;
   });
   term.onTitleChange((title) => {
     const ot = pane.tab;
